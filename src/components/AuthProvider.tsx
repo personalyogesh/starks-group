@@ -4,14 +4,21 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { auth, isFirebaseConfigured } from "@/lib/firebaseClient";
 import { getUser, UserDoc } from "@/lib/firestore";
+import { signOut } from "firebase/auth";
 
 type AuthCtx = {
   user: User | null;
   userDoc: UserDoc | null;
   loading: boolean;
+  logout: () => Promise<void>;
 };
 
-const Ctx = createContext<AuthCtx>({ user: null, userDoc: null, loading: true });
+const Ctx = createContext<AuthCtx>({
+  user: null,
+  userDoc: null,
+  loading: true,
+  logout: async () => {},
+});
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -35,7 +42,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsub();
   }, []);
 
-  const value = useMemo(() => ({ user, userDoc, loading }), [user, userDoc, loading]);
+  const logout = async () => {
+    if (!isFirebaseConfigured || !auth) return;
+    await signOut(auth);
+  };
+
+  const value = useMemo(
+    () => ({ user, userDoc, loading, logout }),
+    [user, userDoc, loading]
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
