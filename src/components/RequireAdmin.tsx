@@ -1,12 +1,23 @@
 "use client";
-import { useAuth } from "./AuthProvider";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+import { ProtectedRoute, useAuth } from "@/lib/AuthContext";
 
 export function RequireAdmin({ children }: { children: React.ReactNode }) {
-  const { user, userDoc, loading } = useAuth();
+  const { currentUser, loading } = useAuth();
+  const router = useRouter();
 
   if (loading) return <p>Loading...</p>;
-  if (!user) return <p>Please login.</p>;
-  if (userDoc?.role !== "admin") return <p>Admins only.</p>;
 
-  return <>{children}</>;
+  useEffect(() => {
+    if (!currentUser) return;
+    if (currentUser.userDoc?.role !== "admin") router.replace("/dashboard");
+  }, [currentUser, router]);
+
+  return (
+    <ProtectedRoute>
+      {currentUser?.userDoc?.role !== "admin" ? null : <>{children}</>}
+    </ProtectedRoute>
+  );
 }
