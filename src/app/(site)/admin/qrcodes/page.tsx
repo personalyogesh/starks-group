@@ -9,15 +9,44 @@ import Button from "@/components/ui/Button";
 import QRCode from "qrcode";
 
 export default function AdminQRCodesPage() {
-  const [text, setText] = useState("");
+  const [mode, setMode] = useState<"preset" | "custom">("preset");
+  const [preset, setPreset] = useState<"home" | "login" | "register">("home");
+  const [customText, setCustomText] = useState("");
+  const [origin, setOrigin] = useState<string>("");
+
+  const text =
+    mode === "custom"
+      ? customText
+      : preset === "home"
+        ? `${origin}/?source=qr`
+        : preset === "login"
+          ? `${origin}/login?source=qr`
+          : `${origin}/register?source=qr`;
+
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
   const isValid = useMemo(() => text.trim().length > 0, [text]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    setOrigin(window.location.origin);
+  }, []);
+
+  useEffect(() => {
     setMsg(null);
     setDataUrl(null);
+  }, [text, mode, preset, customText]);
+
+  const memberOnlyHint = useMemo(() => {
+    const t = text.trim();
+    if (!t) return null;
+    // Quick guard for common member-only routes; these will redirect unauthenticated/pending users.
+    const lower = t.toLowerCase();
+    if (lower.includes("/dashboard") || lower.includes("/create-post") || lower.includes("/profile")) {
+      return "Heads up: this link looks like a member-only page. For public sharing, use Home/Login/Register.";
+    }
+    return null;
   }, [text]);
 
   async function generate(e: React.FormEvent) {
@@ -42,7 +71,7 @@ export default function AdminQRCodesPage() {
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">QR Codes</h1>
           <p className="text-slate-600 mt-1">
-            Generate a QR code for event signup links, forms, or any URL/text.
+            Generate a QR code that sends people to the public Home page (where they can register or login), or paste any custom link/text.
           </p>
         </div>
 
@@ -65,15 +94,87 @@ export default function AdminQRCodesPage() {
                 </div>
               )}
 
+              {memberOnlyHint && (
+                <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  {memberOnlyHint}
+                </div>
+              )}
+
               <form onSubmit={generate} className="grid gap-4">
                 <div className="grid gap-2">
-                  <label className="text-sm font-semibold">Link / Text</label>
-                  <Input
-                    placeholder="https://..."
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    required
-                  />
+                  <label className="text-sm font-semibold">Destination</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className={[
+                        "px-3 py-2 rounded-xl border text-sm font-semibold transition",
+                        mode === "preset" ? "border-slate-900 text-slate-900 bg-white" : "border-slate-200 text-slate-700 hover:bg-slate-50",
+                      ].join(" ")}
+                      onClick={() => setMode("preset")}
+                    >
+                      Presets
+                    </button>
+                    <button
+                      type="button"
+                      className={[
+                        "px-3 py-2 rounded-xl border text-sm font-semibold transition",
+                        mode === "custom" ? "border-slate-900 text-slate-900 bg-white" : "border-slate-200 text-slate-700 hover:bg-slate-50",
+                      ].join(" ")}
+                      onClick={() => setMode("custom")}
+                    >
+                      Custom
+                    </button>
+                  </div>
+                  {mode === "preset" ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className={[
+                          "px-3 py-2 rounded-xl border text-sm font-semibold transition",
+                          preset === "home"
+                            ? "border-blue-600 bg-blue-50 text-blue-800"
+                            : "border-slate-200 text-slate-700 hover:bg-slate-50",
+                        ].join(" ")}
+                        onClick={() => setPreset("home")}
+                      >
+                        Home (recommended)
+                      </button>
+                      <button
+                        type="button"
+                        className={[
+                          "px-3 py-2 rounded-xl border text-sm font-semibold transition",
+                          preset === "register"
+                            ? "border-blue-600 bg-blue-50 text-blue-800"
+                            : "border-slate-200 text-slate-700 hover:bg-slate-50",
+                        ].join(" ")}
+                        onClick={() => setPreset("register")}
+                      >
+                        Register
+                      </button>
+                      <button
+                        type="button"
+                        className={[
+                          "px-3 py-2 rounded-xl border text-sm font-semibold transition",
+                          preset === "login"
+                            ? "border-blue-600 bg-blue-50 text-blue-800"
+                            : "border-slate-200 text-slate-700 hover:bg-slate-50",
+                        ].join(" ")}
+                        onClick={() => setPreset("login")}
+                      >
+                        Login
+                      </button>
+                    </div>
+                  ) : (
+                    <Input
+                      placeholder="https://... (or any text)"
+                      value={customText}
+                      onChange={(e) => setCustomText(e.target.value)}
+                      required
+                    />
+                  )}
+                  <div className="text-xs text-slate-500">
+                    QR target: <span className="font-mono break-all">{text || "—"}</span>
+                  </div>
                 </div>
                 <div className="flex justify-end">
                   <Button type="submit" disabled={!isValid}>

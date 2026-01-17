@@ -99,9 +99,16 @@ export default function AdminPage() {
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     const q = query(collection(db, "users"), orderBy("requestedAt", "desc"), limit(200));
-    return onSnapshot(q, (snap) => {
-      setUsers(snap.docs.map((d) => ({ id: d.id, data: d.data() as UserDoc })));
-    });
+    return onSnapshot(
+      q,
+      (snap) => {
+        setUsers(snap.docs.map((d) => ({ id: d.id, data: d.data() as UserDoc })));
+      },
+      (err) => {
+        console.warn("[AdminPage] users listener error", { err });
+        setUsers([]);
+      }
+    );
   }, []);
 
   const displayRole = (u: UserDoc): "member" | "volunteer" | "coach" | "admin" => {

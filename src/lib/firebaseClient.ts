@@ -1,10 +1,10 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -15,12 +15,48 @@ const firebaseConfig = {
 
 export const isFirebaseConfigured = Object.values(firebaseConfig).every(Boolean);
 
+export function getFirebaseStorageBucketTroubleshootingMessage(): string | null {
+  const bucket = firebaseConfig.storageBucket;
+  if (!bucket) return null;
+  const looksSuspicious =
+    bucket.startsWith("http") ||
+    bucket.endsWith(".web.app") ||
+    bucket.endsWith(".firebaseapp.com") ||
+    bucket.endsWith(".firebasestorage.app");
+  if (!looksSuspicious) return null;
+  return (
+    `Firebase Storage bucket looks misconfigured (NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="${bucket}"). ` +
+    `In Firebase Console → Project settings → Your apps → firebaseConfig, ` +
+    `storageBucket usually looks like "<projectId>.appspot.com". ` +
+    `Update .env.local and restart the dev server.`
+  );
+}
+
+export function isFirebaseStorageBucketLikelyMisconfigured(): boolean {
+  return Boolean(getFirebaseStorageBucketTroubleshootingMessage());
+}
+
 const app =
   isFirebaseConfigured && (getApps().length ? getApp() : initializeApp(firebaseConfig));
+
+const shouldForceLongPolling =
+  // Opt-in via env for prod if needed, and default-on in dev to reduce flaky Firestore internal errors.
+  process.env.NEXT_PUBLIC_FIREBASE_FORCE_LONG_POLLING === "true" ||
+  process.env.NODE_ENV === "development";
 
 // Keep these exports typed as non-null so Firebase helpers (doc/collection/etc) typecheck cleanly.
 // Guard runtime usage with `isFirebaseConfigured` in UI/components.
 export const auth = app ? getAuth(app) : (null as any);
-export const db = app ? getFirestore(app) : (null as any);
+export const db = (() => {
+  if (!app) return null as any;
+  if (!shouldForceLongPolling) return getFirestore(app);
+  // Long-polling is slower but tends to be more robust in dev / certain network environments.
+  // If Firestore is already initialized, fall back to the existing instance.
+  try {
+    return initializeFirestore(app, { experimentalForceLongPolling: true });
+  } catch {
+    return getFirestore(app);
+  }
+})();
 export const storage = app ? getStorage(app) : (null as any);
 export const functions = app ? getFunctions(app) : (null as any);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { listenCollection, EventDoc, LinkDoc, PostDoc, setRsvp } from "@/lib/firestore";
 import { useAuth } from "@/lib/AuthContext";
 import { RequireApproved } from "@/components/RequireApproved";
@@ -10,6 +10,26 @@ import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Image from "next/image";
 import PostCard from "@/components/feed/PostCard";
+import { useSearchParams } from "next/navigation";
+
+function QrWelcomeBanner() {
+  const searchParams = useSearchParams();
+  const fromQr = searchParams?.get("source") === "qr";
+  if (!fromQr) return null;
+  return (
+    <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+      Welcome! Please{" "}
+      <a className="underline font-semibold" href="/register">
+        register
+      </a>{" "}
+      or{" "}
+      <a className="underline font-semibold" href="/login">
+        login
+      </a>{" "}
+      to join the Starks community.
+    </div>
+  );
+}
 
 export default function HomePage() {
   const { currentUser } = useAuth();
@@ -39,6 +59,10 @@ export default function HomePage() {
 
   return (
     <div className="space-y-10">
+      <Suspense fallback={null}>
+        <QrWelcomeBanner />
+      </Suspense>
+
       {/* Hero (matches screenshot layout) */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center py-6 lg:py-10">
         <div className="space-y-6">
@@ -95,16 +119,58 @@ export default function HomePage() {
 
         <div className="relative">
           <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            {/* Replace this with a real photo when you add it: /public/hero.jpg */}
-            <div className="relative aspect-[16/10] bg-gradient-to-br from-slate-100 to-slate-200">
-              {/* If you add /public/hero.jpg, uncomment this:
-              <Image src="/hero.jpg" alt="Starks Cricket team" fill className="object-cover" priority />
-              */}
-              <div className="absolute inset-0 bg-pitch-lines bg-pitch-lines opacity-30" />
-              <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-sm font-semibold">
-                Add a team photo as <code className="mx-1">public/hero.jpg</code>
-              </div>
+            <div className="relative aspect-[16/10] bg-slate-200">
+              {/* Place your team photo at: /public/hero.jpg */}
+              <Image src="/hero.jpg" alt="Starks Cricket team photo" fill className="object-cover" priority />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/25 via-transparent to-transparent" />
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats bar (matches screenshot) */}
+      <section className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen bg-brand-primary text-white py-12">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            <Stat value="2,500+" label="Active Members" />
+            <Stat value="15" label="Sports Programs" />
+            <Stat value="8" label="Partner Organizations" />
+            <Stat value="50+" label="Community Events" />
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section
+        id="about"
+        className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen bg-white border-b border-slate-200/70 py-12"
+      >
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center">
+            <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-slate-950">
+              Mission & Impact
+            </h2>
+            <p className="mt-3 text-lg text-slate-600">
+              Programs, partnerships, and community outcomes that matter.
+            </p>
+          </div>
+
+          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <FeatureCard
+              title="Our Mission"
+              desc="Create positive change through cricket, teamwork, mentorship, and inclusive community events."
+              icon="🎯"
+            />
+            <FeatureCard
+              title="Programs"
+              desc="Youth development, outreach, and competitive teams designed for every skill level."
+              icon="🏏"
+            />
+            <FeatureCard
+              title="Community Impact"
+              desc="Partnering with non-profits to deliver lasting benefits beyond the boundary."
+              icon="🤝"
+            />
           </div>
         </div>
       </section>
@@ -201,7 +267,11 @@ export default function HomePage() {
                   stories from our community.
                 </p>
 
-                <a href="https://www.youtube.com" target="_blank" rel="noreferrer">
+                <a
+                  href="https://youtube.com/@starkscricket?si=prYW34ROqH5IsV7n"
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   <Button
                     variant="outline"
                     className="bg-white text-slate-950 border-white/20 hover:bg-white/90 px-6 py-3 rounded-2xl"
@@ -278,9 +348,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* Anchor sections for navbar links (to be filled in later) */}
-      <div id="about" className="sr-only" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Events */}
@@ -407,6 +474,27 @@ export default function HomePage() {
       </div>
 
       <div className="h-10" />
+    </div>
+  );
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+  return (
+    <div>
+      <div className="text-5xl md:text-6xl font-extrabold tracking-tight">{value}</div>
+      <div className="mt-2 text-lg text-white/90">{label}</div>
+    </div>
+  );
+}
+
+function FeatureCard({ title, desc, icon }: { title: string; desc: string; icon: string }) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-7">
+      <div className="h-12 w-12 rounded-2xl bg-blue-50 border border-blue-100 text-brand-deep grid place-items-center text-xl">
+        {icon}
+      </div>
+      <div className="mt-5 text-2xl font-extrabold tracking-tight text-slate-950">{title}</div>
+      <p className="mt-2 text-slate-600 leading-relaxed">{desc}</p>
     </div>
   );
 }

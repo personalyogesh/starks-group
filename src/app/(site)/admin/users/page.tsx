@@ -16,9 +16,16 @@ export default function AdminUsersPage() {
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     const q = query(collection(db, "users"), orderBy("requestedAt", "desc"));
-    return onSnapshot(q, (snap) => {
-      setUsers(snap.docs.map((d) => ({ id: d.id, data: d.data() as UserDoc })));
-    });
+    return onSnapshot(
+      q,
+      (snap) => {
+        setUsers(snap.docs.map((d) => ({ id: d.id, data: d.data() as UserDoc })));
+      },
+      (err) => {
+        console.warn("[AdminUsersPage] users listener error", { err });
+        setUsers([]);
+      }
+    );
   }, []);
 
   const setStatus = async (uid: string, status: UserStatus) => {

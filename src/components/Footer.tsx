@@ -80,22 +80,79 @@ export default function Footer() {
                   <span aria-hidden="true">📧</span>
                   <div>
                     <div className="font-semibold text-white">Email</div>
-                    <div className="text-white/70">contact@starkscricket.org</div>
+                    <div className="text-white/70">starksgroup@starksgrp.org</div>
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <span aria-hidden="true">📞</span>
                   <div>
                     <div className="font-semibold text-white">Phone</div>
-                    <div className="text-white/70">+1 (555) 123-4567</div>
+                    <div className="text-white/70">909-999-0153</div>
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <span aria-hidden="true">📍</span>
                   <div>
                     <div className="font-semibold text-white">Location</div>
-                    <div className="text-white/70">123 Cricket Ground, City, ST 12345</div>
+                    <div className="text-white/70">Morrisville, NC</div>
                   </div>
+                </div>
+              </div>
+
+              {/* Social Media Links */}
+              <div className="mt-6">
+                <h5 className="font-semibold mb-3">Follow Us</h5>
+                <div className="flex gap-3">
+                  <a
+                    href="https://www.instagram.com/starkscricketclub?igsh=MmU3emNlMmpjNHR0&utm_source=qr"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="size-10 bg-gray-800 hover:bg-gradient-to-br hover:from-purple-600 hover:via-pink-600 hover:to-orange-500 rounded-full flex items-center justify-center transition-all duration-300 group"
+                    aria-label="Instagram"
+                  >
+                    <svg
+                      className="size-5 text-gray-400 group-hover:text-white transition-colors"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5Z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M16 11.37a4 4 0 1 1-7.75 1.26 4 4 0 0 1 7.75-1.26Z"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M17.5 6.5h.01"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </a>
+
+                  <a
+                    href="https://x.com/clubstarks?s=21&t=BAMIGs5adc1xl19nJGtDEw"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="size-10 bg-gray-800 hover:bg-black rounded-full flex items-center justify-center transition-all duration-300 group"
+                    aria-label="X (Twitter)"
+                  >
+                    <svg
+                      className="size-5 text-gray-400 group-hover:text-white transition-colors"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
+                  </a>
                 </div>
               </div>
             </div>
@@ -107,18 +164,47 @@ export default function Footer() {
       <div className="border-t border-white/10">
         <Container>
           <div className="py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-white/60">
-            <div>© {new Date().getFullYear()} Starks Cricket Club. All rights reserved.</div>
+            <div>© 2026 Starks Cricket Club. All rights reserved.</div>
 
             <div className="flex items-center gap-6">
-              <a className="hover:text-white transition" href="#privacy">
+              <div className="hidden md:flex items-center gap-3">
+                <a
+                  className="hover:text-white transition"
+                  href="https://youtube.com/@starkscricket?si=prYW34ROqH5IsV7n"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="YouTube"
+                >
+                  ▶
+                </a>
+                <a
+                  className="hover:text-white transition"
+                  href="https://instagram.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Instagram"
+                >
+                  ⌁
+                </a>
+                <a
+                  className="hover:text-white transition"
+                  href="https://facebook.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Facebook"
+                >
+                  f
+                </a>
+              </div>
+              <Link className="hover:text-white transition" href="/privacy">
                 Privacy Policy
-              </a>
-              <a className="hover:text-white transition" href="#terms">
+              </Link>
+              <Link className="hover:text-white transition" href="/terms">
                 Terms of Service
-              </a>
-              <a className="hover:text-white transition" href="#cookies">
+              </Link>
+              <Link className="hover:text-white transition" href="/cookies">
                 Cookies
-              </a>
+              </Link>
             </div>
           </div>
         </Container>

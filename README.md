@@ -20,6 +20,20 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Firebase environment variables
+
+This project expects Firebase client config in `.env.local`:
+
+- `NEXT_PUBLIC_FIREBASE_API_KEY`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` (usually looks like `<projectId>.appspot.com`)
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `NEXT_PUBLIC_FIREBASE_APP_ID`
+
+If you see Firebase Storage upload failures that look like a “CORS” error, double-check
+`NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` matches the `storageBucket` value shown in Firebase Console → Project settings → Your apps → `firebaseConfig`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -6,7 +6,6 @@ import {
   collectionGroup,
   deleteDoc,
   doc,
-  documentId,
   getDoc,
   getDocs,
   increment,
@@ -55,6 +54,7 @@ export type EventDoc = {
 };
 
 export type RsvpDoc = {
+  uid?: string;
   status: "going" | "interested";
   updatedAt: any;
 };
@@ -99,6 +99,7 @@ export function listenCollection<T>(
     orderByField?: string;
     direction?: "asc" | "desc";
     limit?: number;
+    onError?: (err: unknown) => void;
   }
 ) {
   const orderByField = opts?.orderByField ?? "createdAt";
@@ -109,9 +110,16 @@ export function listenCollection<T>(
     typeof lim === "number"
       ? query(collection(db, path), orderBy(orderByField, direction), fbLimit(lim))
       : query(collection(db, path), orderBy(orderByField, direction));
-  return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, data: d.data() as T })));
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(snap.docs.map((d) => ({ id: d.id, data: d.data() as T })));
+    },
+    (err) => {
+      opts?.onError?.(err);
+      console.warn("[listenCollection] snapshot error", { path, err });
+    }
+  );
 }
 
 export async function getUser(uid: string) {
@@ -212,7 +220,7 @@ export async function createVideo(
 export function listenPostsByUser(
   uid: string,
   cb: (docs: Array<{ id: string; data: PostDoc }>) => void,
-  opts?: { limit?: number }
+  opts?: { limit?: number; onError?: (err: unknown) => void }
 ) {
   const lim = opts?.limit ?? 25;
   const q = query(
@@ -221,25 +229,42 @@ export function listenPostsByUser(
     orderBy("createdAt", "desc"),
     fbLimit(lim)
   );
-  return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, data: d.data() as PostDoc })));
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(snap.docs.map((d) => ({ id: d.id, data: d.data() as PostDoc })));
+    },
+    (err) => {
+      opts?.onError?.(err);
+      console.warn("[listenPostsByUser] snapshot error", { uid, err });
+    }
+  );
 }
 
 export function listenUserRsvps(
   uid: string,
-  cb: (docs: Array<{ eventId: string; data: RsvpDoc }>) => void
+  cb: (docs: Array<{ eventId: string; data: RsvpDoc }>) => void,
+  opts?: { onError?: (err: unknown) => void }
 ) {
   // events/{eventId}/rsvps/{uid}
-  const q = query(collectionGroup(db, "rsvps"), where(documentId(), "==", uid));
-  return onSnapshot(q, (snap) => {
-    cb(
-      snap.docs.map((d) => ({
-        eventId: d.ref.parent.parent?.id ?? "",
-        data: d.data() as RsvpDoc,
-      }))
-    );
-  });
+  // Note: For collectionGroup queries, documentId() comparisons require full document *paths*.
+  // We store `uid` inside each RSVP so we can query cleanly.
+  const q = query(collectionGroup(db, "rsvps"), where("uid", "==", uid));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(
+        snap.docs.map((d) => ({
+          eventId: d.ref.parent.parent?.id ?? "",
+          data: d.data() as RsvpDoc,
+        }))
+      );
+    },
+    (err) => {
+      opts?.onError?.(err);
+      console.warn("[listenUserRsvps] snapshot error", { uid, err });
+    }
+  );
 }
 
 export async function deletePost(postId: string) {
@@ -385,6 +410,6 @@ export async function setRsvp(
   status: "going" | "interested"
 ) {
   const ref = doc(db, "events", eventId, "rsvps", uid);
-  await setDoc(ref, { status, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(ref, { uid, status, updatedAt: serverTimestamp() }, { merge: true });
 }
 

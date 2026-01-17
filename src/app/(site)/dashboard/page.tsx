@@ -95,11 +95,6 @@ export default function DashboardPage() {
     };
   }, [posts, authors]);
 
-  if (loading) return <p>Loading...</p>;
-  if (!currentUser) return null;
-
-  const isApproved = userDoc?.status === "approved";
-
   const filteredPosts = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return posts;
@@ -119,6 +114,7 @@ export default function DashboardPage() {
     return posts.filter((p) => p.data.createdBy === uid).length;
   }, [posts, uid]);
 
+  const isApproved = userDoc?.status === "approved";
   const likesReceived = "—";
 
   const topContributors = useMemo(() => {
@@ -134,6 +130,9 @@ export default function DashboardPage() {
       avatarUrl: authors[id]?.avatarUrl,
     }));
   }, [posts, authors]);
+
+  if (loading) return <p>Loading...</p>;
+  if (!currentUser) return null;
 
   return (
     <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen">

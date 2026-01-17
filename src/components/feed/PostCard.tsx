@@ -97,13 +97,27 @@ export default function PostCard({
   useEffect(() => {
     if (!uid || !isFirebaseConfigured) return;
     const ref = doc(db, "posts", postId, "likes", uid);
-    return onSnapshot(ref, (snap) => setLiked(snap.exists()));
+    return onSnapshot(
+      ref,
+      (snap) => setLiked(snap.exists()),
+      (err) => {
+        console.warn("[PostCard] like listener error", { postId, uid, err });
+        setLiked(false);
+      }
+    );
   }, [postId, uid]);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     const likesRef = collection(db, "posts", postId, "likes");
-    return onSnapshot(likesRef, (snap) => setLikeCount(snap.size));
+    return onSnapshot(
+      likesRef,
+      (snap) => setLikeCount(snap.size),
+      (err) => {
+        console.warn("[PostCard] likes count listener error", { postId, err });
+        setLikeCount(0);
+      }
+    );
   }, [postId]);
 
   useEffect(() => {

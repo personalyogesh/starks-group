@@ -325,10 +325,17 @@ function EventCard({
   useEffect(() => {
     if (!isFirebaseConfigured || !uid) return;
     const ref = doc(db, "events", id, "rsvps", uid);
-    return onSnapshot(ref, (snap) => {
-      if (!snap.exists()) setMyStatus(null);
-      else setMyStatus((snap.data() as any)?.status ?? "going");
-    });
+    return onSnapshot(
+      ref,
+      (snap) => {
+        if (!snap.exists()) setMyStatus(null);
+        else setMyStatus((snap.data() as any)?.status ?? "going");
+      },
+      (err) => {
+        console.warn("[EventCard] my RSVP listener error", { eventId: id, uid, err });
+        setMyStatus(null);
+      }
+    );
   }, [id, uid]);
 
   async function register() {

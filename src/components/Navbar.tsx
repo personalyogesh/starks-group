@@ -41,6 +41,9 @@ export default function Navbar() {
             <a className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="#programs">
               Programs
             </a>
+            <a className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="#events">
+              Events
+            </a>
             <a className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="#partners">
               Partners
             </a>

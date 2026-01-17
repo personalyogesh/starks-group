@@ -6,7 +6,12 @@ import Link from "next/link";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { useAuth } from "@/lib/AuthContext";
-import { isFirebaseConfigured, storage } from "@/lib/firebaseClient";
+import {
+  getFirebaseStorageBucketTroubleshootingMessage,
+  isFirebaseConfigured,
+  isFirebaseStorageBucketLikelyMisconfigured,
+  storage,
+} from "@/lib/firebaseClient";
 import { getEvent, listenPostsByUser, listenUserRsvps, PostDoc, UserDoc } from "@/lib/firestore";
 import PostCard from "@/components/feed/PostCard";
 
@@ -31,6 +36,8 @@ export default function ProfilePage() {
   const user = currentUser?.authUser ?? null;
   const userDoc = currentUser?.userDoc ?? null;
   const uid = user?.uid ?? "";
+  const isApproved = userDoc?.status === "approved";
+  const [permError, setPermError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<"posts" | "about" | "events">("posts");
   const [editing, setEditing] = useState(false);
@@ -70,15 +77,43 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!isFirebaseConfigured || !uid) return;
-    return listenPostsByUser(uid, setMyPosts, { limit: 25 });
-  }, [uid]);
+    // If your rules require approval for reads, avoid permission errors for pending users.
+    if (!isApproved) {
+      setMyPosts([]);
+      return;
+    }
+    return listenPostsByUser(uid, setMyPosts, {
+      limit: 25,
+      onError: (err: any) => {
+        if (err?.code === "permission-denied") {
+          setPermError("You don’t have permission to load posts yet. Please wait for admin approval.");
+          setMyPosts([]);
+        }
+      },
+    });
+  }, [uid, isApproved]);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !uid) return;
-    return listenUserRsvps(uid, (docs) => {
-      setRsvpEventIds(docs.map((d) => d.eventId).filter(Boolean));
-    });
-  }, [uid]);
+    if (!isApproved) {
+      setRsvpEventIds([]);
+      return;
+    }
+    return listenUserRsvps(
+      uid,
+      (docs) => {
+        setRsvpEventIds(docs.map((d) => d.eventId).filter(Boolean));
+      },
+      {
+        onError: (err: any) => {
+          if (err?.code === "permission-denied") {
+            setPermError("You don’t have permission to load event RSVPs yet. Please wait for admin approval.");
+            setRsvpEventIds([]);
+          }
+        },
+      }
+    );
+  }, [uid, isApproved]);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +138,7 @@ export default function ProfilePage() {
 
   const canSave = useMemo(() => {
     if (!isFirebaseConfigured || saving || uploadingAvatar) return false;
+    if (isFirebaseStorageBucketLikelyMisconfigured()) return false;
     if (!uid) return false;
     if (!editing) return false;
     return true;
@@ -113,6 +149,8 @@ export default function ProfilePage() {
     if (!uid) return undefined;
     setUploadingAvatar(true);
     try {
+      const bucketHint = getFirebaseStorageBucketTroubleshootingMessage();
+      if (bucketHint) throw new Error(bucketHint);
       const storageRef = ref(storage, `profiles/${uid}/avatar.jpg`);
       await uploadBytes(storageRef, avatarFile, { contentType: avatarFile.type || "image/jpeg" });
       const url = await getDownloadURL(storageRef);
@@ -180,6 +218,12 @@ export default function ProfilePage() {
           ].join(" ")}
         >
           {msg.text}
+        </div>
+      )}
+
+      {permError && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {permError}
         </div>
       )}
 

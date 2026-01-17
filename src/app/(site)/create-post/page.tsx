@@ -7,7 +7,12 @@ import { useRouter } from "next/navigation";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { useAuth } from "@/lib/AuthContext";
-import { isFirebaseConfigured, storage } from "@/lib/firebaseClient";
+import {
+  getFirebaseStorageBucketTroubleshootingMessage,
+  isFirebaseConfigured,
+  isFirebaseStorageBucketLikelyMisconfigured,
+  storage,
+} from "@/lib/firebaseClient";
 import { createPost } from "@/lib/firestore";
 import { RequireApproved } from "@/components/RequireApproved";
 
@@ -48,6 +53,7 @@ export default function CreatePostPage() {
 
   const canSubmit = useMemo(() => {
     if (!isFirebaseConfigured || submitting) return false;
+    if (isFirebaseStorageBucketLikelyMisconfigured()) return false;
     if (!user) return false;
     if (userDoc?.status !== "approved") return false;
     if (!body.trim()) return false;
@@ -63,6 +69,12 @@ export default function CreatePostPage() {
         kind: "error",
         text: "Firebase isn’t configured yet. Add NEXT_PUBLIC_FIREBASE_* to .env.local.",
       });
+      return;
+    }
+
+    const bucketHint = getFirebaseStorageBucketTroubleshootingMessage();
+    if (bucketHint) {
+      setMsg({ kind: "error", text: bucketHint });
       return;
     }
 
