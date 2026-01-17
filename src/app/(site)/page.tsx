@@ -11,6 +11,7 @@ import Button from "@/components/ui/Button";
 import Image from "next/image";
 import PostCard from "@/components/feed/PostCard";
 import { useSearchParams } from "next/navigation";
+import LandingCarousel from "@/components/landing/LandingCarousel";
 
 function QrWelcomeBanner() {
   const searchParams = useSearchParams();
@@ -118,13 +119,7 @@ export default function HomePage() {
         </div>
 
         <div className="relative">
-          <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div className="relative aspect-[16/10] bg-slate-200">
-              {/* Place your team photo at: /public/hero.jpg */}
-              <Image src="/hero.jpg" alt="Starks Cricket team photo" fill className="object-cover" priority />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/25 via-transparent to-transparent" />
-            </div>
-          </div>
+          <LandingCarousel />
         </div>
       </section>
 

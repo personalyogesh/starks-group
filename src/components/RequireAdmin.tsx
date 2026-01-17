@@ -8,12 +8,13 @@ export function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useAuth();
   const router = useRouter();
 
-  if (loading) return <p>Loading...</p>;
-
   useEffect(() => {
+    if (loading) return;
     if (!currentUser) return;
     if (currentUser.userDoc?.role !== "admin") router.replace("/dashboard");
-  }, [currentUser, router]);
+  }, [loading, currentUser, router]);
+
+  if (loading) return <p>Loading...</p>;
 
   return (
     <ProtectedRoute>

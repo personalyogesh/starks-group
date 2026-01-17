@@ -30,13 +30,24 @@ export default function Modal({
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
-      <button
-        type="button"
+      {/* Backdrop */}
+      <div
         className="absolute inset-0"
-        aria-label="Close modal"
+        aria-hidden="true"
         onClick={onClose}
       />
-      <div className={["w-full rounded-3xl border border-slate-200 bg-white shadow-xl", maxWidthClassName].join(" ")}>
+
+      {/* Dialog */}
+      <div
+        className={[
+          "relative z-[201] w-full rounded-3xl border border-slate-200 bg-white shadow-xl flex flex-col max-h-[85vh]",
+          maxWidthClassName,
+        ].join(" ")}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4">
           <div className="text-xl font-extrabold tracking-tight">{title}</div>
           <button
@@ -48,8 +59,12 @@ export default function Modal({
             ✕
           </button>
         </div>
-        <div className="px-6 py-5">{children}</div>
-        {footer && <div className="px-6 py-5 border-t border-slate-100">{footer}</div>}
+        <div className="px-6 py-5 overflow-auto flex-1">{children}</div>
+        {footer && (
+          <div className="px-6 py-4 border-t border-slate-100 bg-white">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

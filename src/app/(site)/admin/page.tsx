@@ -240,6 +240,11 @@ export default function AdminPage() {
                     👤 Add New User
                   </Button>
                 </Link>
+                <Link href="/?adminCarousel=1">
+                  <Button variant="outline" className="w-full">
+                    🖼️ Manage Landing Carousel
+                  </Button>
+                </Link>
                 <Link href="/create-post">
                   <Button variant="outline" className="w-full">
                     📝 Create Post

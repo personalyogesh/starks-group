@@ -92,6 +92,15 @@ export type VideoDoc = {
   addedDate: any;
 };
 
+export type CarouselSlideDoc = {
+  title: string;
+  note?: string;
+  imageUrl: string;
+  storagePath?: string;
+  createdAt: any;
+  createdBy: string;
+};
+
 export function listenCollection<T>(
   path: string,
   cb: (docs: Array<{ id: string; data: T }>) => void,
@@ -215,6 +224,25 @@ export async function createVideo(
     addedBy: uid,
     addedDate: serverTimestamp(),
   });
+}
+
+export async function createCarouselSlide(
+  uid: string,
+  data: Omit<CarouselSlideDoc, "createdAt" | "createdBy">
+) {
+  await addDoc(collection(db, "carouselSlides"), {
+    ...data,
+    createdBy: uid,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteCarouselSlide(slideId: string) {
+  await deleteDoc(doc(db, "carouselSlides", slideId));
+}
+
+export async function updateCarouselSlide(slideId: string, patch: Partial<CarouselSlideDoc>) {
+  await updateDoc(doc(db, "carouselSlides", slideId), patch);
 }
 
 export function listenPostsByUser(

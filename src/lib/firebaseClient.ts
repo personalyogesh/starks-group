@@ -21,13 +21,12 @@ export function getFirebaseStorageBucketTroubleshootingMessage(): string | null 
   const looksSuspicious =
     bucket.startsWith("http") ||
     bucket.endsWith(".web.app") ||
-    bucket.endsWith(".firebaseapp.com") ||
-    bucket.endsWith(".firebasestorage.app");
+    bucket.endsWith(".firebaseapp.com");
   if (!looksSuspicious) return null;
   return (
     `Firebase Storage bucket looks misconfigured (NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="${bucket}"). ` +
     `In Firebase Console → Project settings → Your apps → firebaseConfig, ` +
-    `storageBucket usually looks like "<projectId>.appspot.com". ` +
+    `storageBucket often looks like "<projectId>.appspot.com" (or sometimes "<projectId>.firebasestorage.app"). ` +
     `Update .env.local and restart the dev server.`
   );
 }
