@@ -10,12 +10,19 @@ import { useAuth } from "@/lib/AuthContext";
 import Button from "@/components/ui/Button";
 import { UserAccountMenu } from "@/app/components/UserAccountMenu";
 import { MobileNav } from "@/app/components/MobileNav";
+import { useToast } from "@/components/ui/ToastProvider";
 
 function initialsFromName(name?: string | null) {
   const n = (name ?? "").trim();
   if (!n) return "U";
   const parts = n.split(/\s+/).slice(0, 2);
   return parts.map((p) => p[0]?.toUpperCase()).join("") || "U";
+}
+
+function isActiveTopNav(pathname: string, href: string) {
+  if (href === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  if (href === "/partners") return pathname === "/partners" || pathname.startsWith("/partners/");
+  return pathname === href;
 }
 
 export default function DashboardHeader() {
@@ -25,6 +32,7 @@ export default function DashboardHeader() {
   const sp = useSearchParams();
   const isAdmin = currentUser?.userDoc?.role === "admin";
   const isAuthenticated = Boolean(currentUser);
+  const { toast } = useToast();
 
   const q = sp.get("q") ?? "";
   const [draft, setDraft] = useState(q);
@@ -71,6 +79,34 @@ export default function DashboardHeader() {
               <div className="text-xs text-slate-500 font-semibold">Estd. 2018</div>
             </div>
           </Link>
+
+          {/* Desktop nav (lg+) */}
+          <nav className="hidden lg:flex items-center gap-2">
+            <Link
+              href="/dashboard"
+              aria-current={isActiveTopNav(pathname, "/dashboard") ? "page" : undefined}
+              className={[
+                "rounded-xl px-3 py-2 text-sm font-semibold transition",
+                isActiveTopNav(pathname, "/dashboard")
+                  ? "bg-slate-950 text-white"
+                  : "text-slate-700 hover:bg-slate-100",
+              ].join(" ")}
+            >
+              Community
+            </Link>
+            <Link
+              href="/partners"
+              aria-current={isActiveTopNav(pathname, "/partners") ? "page" : undefined}
+              className={[
+                "rounded-xl px-3 py-2 text-sm font-semibold transition",
+                isActiveTopNav(pathname, "/partners")
+                  ? "bg-slate-950 text-white"
+                  : "text-slate-700 hover:bg-slate-100",
+              ].join(" ")}
+            >
+              Partners
+            </Link>
+          </nav>
 
           {/* Search (tablet+), hidden on mobile */}
           {isAuthenticated && (
@@ -138,8 +174,15 @@ export default function DashboardHeader() {
 
                 <button
                   type="button"
-                  className="relative h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition grid place-items-center"
+                  className="hidden sm:grid relative h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition place-items-center"
                   aria-label="Notifications"
+                  onClick={() =>
+                    toast({
+                      kind: "info",
+                      title: "Notifications",
+                      description: "Notifications are coming soon.",
+                    })
+                  }
                 >
                   <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-700" fill="none">
                     <path

@@ -111,6 +111,9 @@ export type PostDoc = {
 export type CommentDoc = {
   postId?: string;
   body: string;
+  authorName?: string;
+  authorAvatar?: string;
+  parentCommentId?: string | null;
   createdAt: any;
   createdBy: string;
   // client-only
@@ -435,28 +438,54 @@ export function listenComments(
   };
 }
 
-export async function addComment(postId: string, uid: string, body: string) {
+export async function addComment(
+  postId: string,
+  uid: string,
+  body: string,
+  opts?: { parentCommentId?: string | null }
+): Promise<string> {
   // Create a single ID so we can dual-write (top-level + legacy subcollection) without duplication.
   const topRef = doc(collection(db, "comments"));
   const commentId = topRef.id;
 
+  // Attach denormalized author info so we don't need to read other users' docs client-side.
+  let authorName: string | undefined;
+  let authorAvatar: string | undefined;
+  try {
+    const meSnap = await getDoc(doc(db, "users", uid));
+    if (meSnap.exists()) {
+      const me = meSnap.data() as UserDoc;
+      authorName = me.name;
+      authorAvatar = me.avatarUrl;
+    }
+  } catch {
+    // ignore
+  }
+
   const payload: CommentDoc = {
     postId,
     body,
+    ...(authorName ? { authorName } : {}),
+    ...(authorAvatar ? { authorAvatar } : {}),
     createdAt: serverTimestamp(),
     createdBy: uid,
+    ...(opts?.parentCommentId ? { parentCommentId: opts.parentCommentId } : {}),
   };
 
   await Promise.all([
     setDoc(topRef, payload),
     setDoc(doc(db, "posts", postId, "comments", commentId), {
       body,
+      ...(authorName ? { authorName } : {}),
+      ...(authorAvatar ? { authorAvatar } : {}),
       createdAt: serverTimestamp(),
       createdBy: uid,
+      ...(opts?.parentCommentId ? { parentCommentId: opts.parentCommentId } : {}),
     }),
   ]);
 
   await updateDoc(doc(db, "posts", postId), { commentCount: increment(1) });
+  return commentId;
 }
 
 export async function deleteComment(postId: string, commentId: string) {

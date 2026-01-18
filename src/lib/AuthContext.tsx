@@ -8,6 +8,8 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   updateProfile as fbUpdateProfile,
+  GoogleAuthProvider,
+  signInWithPopup,
   User,
 } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -24,6 +26,7 @@ type AuthCtx = {
   currentUser: CurrentUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   signup: (args: {
     email: string;
@@ -46,6 +49,7 @@ const Ctx = createContext<AuthCtx>({
   currentUser: null,
   loading: true,
   login: async () => {},
+  loginWithGoogle: async () => {},
   logout: async () => {},
   signup: async () => {},
   updateProfile: async () => {},
@@ -108,6 +112,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Firebase isn’t configured.");
     }
     await signInWithEmailAndPassword(auth, email, password);
+  };
+
+  const loginWithGoogle = async () => {
+    if (!isFirebaseConfigured || !auth) {
+      throw new Error("Firebase isn’t configured.");
+    }
+
+    const provider = new GoogleAuthProvider();
+    const cred = await signInWithPopup(auth, provider);
+
+    // Ensure a Firestore user doc exists (our app requires admin approval).
+    // IMPORTANT: don't overwrite an existing approved user back to "pending".
+    const email = (cred.user.email ?? "").trim().toLowerCase();
+    const displayName = (cred.user.displayName ?? "").trim();
+
+    const existing = await getUser(cred.user.uid);
+    if (existing) {
+      const { requestedAt: _requestedAt, ...rest } = existing as any;
+      await ensureUserDoc(cred.user.uid, {
+        ...rest,
+        name: rest.name || displayName || email || "Member",
+        email: rest.email || email || "",
+        ...(rest.avatarUrl ? {} : cred.user.photoURL ? { avatarUrl: cred.user.photoURL } : {}),
+        stats: rest.stats ?? { posts: 0, connections: 0, events: 0, likes: 0 },
+        status: rest.status ?? "pending",
+        role: rest.role ?? "member",
+      });
+    } else {
+      await ensureUserDoc(cred.user.uid, {
+        name: displayName || email || "New Member",
+        email,
+        ...(cred.user.photoURL ? { avatarUrl: cred.user.photoURL } : {}),
+        status: "pending",
+        role: "member",
+        stats: { posts: 0, connections: 0, events: 0, likes: 0 },
+      });
+    }
+
+    // Enforce security-sensitive gating rules:
+    // - suspended/rejected users should not stay signed in
+    // - pending users can stay signed in, but the UI will be read-only (canInteract=false)
+    const doc = await getUser(cred.user.uid);
+    if (doc?.suspended) {
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("starks:authError", "Your account is suspended. Please contact an administrator.");
+        }
+      } catch {
+        // ignore
+      }
+      await signOut(auth);
+      throw new Error("Account suspended");
+    }
+    if (doc?.status === "rejected") {
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("starks:authError", "Your account has been deactivated. Contact admin.");
+        }
+      } catch {
+        // ignore
+      }
+      await signOut(auth);
+      throw new Error("Account deactivated");
+    }
+    // pending: allowed to remain signed in (read-only until approved)
   };
 
   const logout = async () => {
@@ -188,6 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       currentUser: authUser ? { authUser, userDoc } : null,
       loading,
       login,
+      loginWithGoogle,
       logout,
       signup,
       updateProfile,

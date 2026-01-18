@@ -50,7 +50,7 @@ export default function Navbar() {
             <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href={isLoggedIn ? "/events" : "/#events"}>
               Events
             </Link>
-            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="/#partners">
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="/partners">
               Partners
             </Link>
             <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="/dashboard">
@@ -61,68 +61,70 @@ export default function Navbar() {
           {/* Right: actions */}
           <div className="flex items-center justify-end gap-2 whitespace-nowrap">
             <MobileNav isAuthenticated={isLoggedIn} />
-            {user ? (
-              <>
-                <Link href="/create-post" className="hidden sm:inline-flex">
-                  <Button size="sm" variant="dark">
-                    Create Post
-                  </Button>
-                </Link>
-
-                {/* Compact account menu to avoid breaking the header alignment */}
-                <details className="relative">
-                  <summary className="list-none">
-                    <Button size="sm" variant="outline">
-                      Account
+            <div className="hidden sm:flex items-center gap-2">
+              {user ? (
+                <>
+                  <Link href="/create-post" className="hidden sm:inline-flex">
+                    <Button size="sm" variant="dark">
+                      Create Post
                     </Button>
-                  </summary>
-                  <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg p-2">
-                    <div className="px-3 py-2 text-xs text-slate-600">
-                      <div className="font-semibold text-slate-900 truncate">{user.email}</div>
-                      <div className="mt-1">
-                        status: <b>{userDoc?.status ?? "unknown"}</b>
-                        {" · "}
-                        role: <b>{userDoc?.role ?? "unknown"}</b>
+                  </Link>
+
+                  {/* Compact account menu to avoid breaking the header alignment */}
+                  <details className="relative">
+                    <summary className="list-none">
+                      <Button size="sm" variant="outline">
+                        Account
+                      </Button>
+                    </summary>
+                    <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg p-2">
+                      <div className="px-3 py-2 text-xs text-slate-600">
+                        <div className="font-semibold text-slate-900 truncate">{user.email}</div>
+                        <div className="mt-1">
+                          status: <b>{userDoc?.status ?? "unknown"}</b>
+                          {" · "}
+                          role: <b>{userDoc?.role ?? "unknown"}</b>
+                        </div>
+                      </div>
+                      <div className="h-px bg-slate-100 my-2" />
+                      <div className="grid">
+                        <Link className="rounded-xl px-3 py-2 hover:bg-slate-50" href="/profile">
+                          Profile
+                        </Link>
+                        <Link className="rounded-xl px-3 py-2 hover:bg-slate-50" href="/create-post">
+                          Create Post
+                        </Link>
+                        {userDoc?.role === "admin" && (
+                          <Link className="rounded-xl px-3 py-2 hover:bg-slate-50" href="/admin">
+                            Admin
+                          </Link>
+                        )}
+                        <button
+                          className="text-left rounded-xl px-3 py-2 hover:bg-slate-50 text-rose-700"
+                          onClick={logout}
+                          type="button"
+                        >
+                          Logout
+                        </button>
                       </div>
                     </div>
-                    <div className="h-px bg-slate-100 my-2" />
-                    <div className="grid">
-                      <Link className="rounded-xl px-3 py-2 hover:bg-slate-50" href="/profile">
-                        Profile
-                      </Link>
-                      <Link className="rounded-xl px-3 py-2 hover:bg-slate-50" href="/create-post">
-                        Create Post
-                      </Link>
-                      {userDoc?.role === "admin" && (
-                        <Link className="rounded-xl px-3 py-2 hover:bg-slate-50" href="/admin">
-                          Admin
-                        </Link>
-                      )}
-                      <button
-                        className="text-left rounded-xl px-3 py-2 hover:bg-slate-50 text-rose-700"
-                        onClick={logout}
-                        type="button"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                </details>
-              </>
-            ) : (
-              <>
-                <Link href="/login">
-                  <Button size="sm" variant="outline">
-                    Login
-                  </Button>
-                </Link>
-                <Link href="/register">
-                  <Button size="sm" variant="dark">
-                    Join Us
-                  </Button>
-                </Link>
-              </>
-            )}
+                  </details>
+                </>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button size="sm" variant="outline">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button size="sm" variant="dark">
+                      Join Us
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </Container>

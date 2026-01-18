@@ -1,0 +1,166 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function me() {
+      return signedIn() ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data : null;
+    }
+
+    function isApproved() {
+      return signedIn()
+        && me().status == "approved"
+        && (me().suspended != true);
+    }
+
+    function canReadPostData(postData) {
+      // Default to public if missing privacy field (back-compat).
+      return postData.privacy == null
+        || postData.privacy == "public"
+        || (isApproved() && (postData.privacy == "members" || postData.privacy == "friends"));
+    }
+
+    function canReadPost(postId) {
+      return canReadPostData(get(/databases/$(database)/documents/posts/$(postId)).data);
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).changedKeys();
+    }
+
+    // --- Users ---
+    // NOTE: User docs contain sensitive fields (email/phone). Keep reads tight.
+    match /users/{uid} {
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.role == "member"
+        && request.resource.data.status == "pending";
+
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+
+      allow update: if isAdmin()
+        || (
+          signedIn()
+          && request.auth.uid == uid
+          // Prevent privilege escalation / approval bypass.
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.suspended == resource.data.suspended
+        );
+
+      allow delete: if isAdmin();
+    }
+
+    // --- Partners (public showcase; admin manages) ---
+    match /partners/{partnerId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Carousel (public read; admin manages) ---
+    match /carouselSlides/{slideId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Links + Videos (public read; admin manages) ---
+    match /links/{linkId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /videos/{videoId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Events (public read; admin manages) ---
+    match /events/{eventId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+
+      // RSVP docs: user can manage their own RSVP; admin can read all.
+      match /rsvps/{uid} {
+        allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+        allow create, update: if isApproved()
+          && request.auth.uid == uid
+          && request.resource.data.uid == uid;
+        allow delete: if isApproved() && request.auth.uid == uid;
+      }
+    }
+
+    // --- Posts (public read w/ privacy; approved write) ---
+    match /posts/{postId} {
+      allow read: if canReadPostData(resource.data);
+
+      allow create: if isApproved()
+        && request.resource.data.createdBy == request.auth.uid;
+
+      // Owner edits (content) vs non-owner edits (comment count updates).
+      allow update: if isApproved() && (
+        (
+          request.auth.uid == resource.data.createdBy
+          && changedKeys().hasOnly([
+            "title",
+            "body",
+            "content",
+            "privacy",
+            "imageUrl",
+            "updatedAt",
+            "commentCount"
+          ])
+        )
+        ||
+        (
+          request.auth.uid != resource.data.createdBy
+          && changedKeys().hasOnly(["commentCount", "updatedAt"])
+        )
+      );
+
+      allow delete: if isAdmin() || (isApproved() && request.auth.uid == resource.data.createdBy);
+
+      // Likes (subcollection model)
+      match /likes/{uid} {
+        allow read: if canReadPost(postId);
+        allow create, delete: if isApproved() && request.auth.uid == uid;
+      }
+
+      // Saves (subcollection model)
+      match /saves/{uid} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow create, delete: if isApproved() && request.auth.uid == uid;
+      }
+
+      // Legacy comments subcollection (we dual-write for back-compat).
+      match /comments/{commentId} {
+        allow read: if canReadPost(postId);
+        allow create: if isApproved()
+          && request.resource.data.createdBy == request.auth.uid;
+        allow delete: if isAdmin() || (isApproved() && resource.data.createdBy == request.auth.uid);
+      }
+    }
+
+    // Prompt-aligned top-level comments
+    match /comments/{commentId} {
+      allow read: if canReadPost(resource.data.postId);
+      allow create: if isApproved()
+        && request.resource.data.createdBy == request.auth.uid
+        && canReadPost(request.resource.data.postId);
+      allow delete: if isAdmin() || (isApproved() && resource.data.createdBy == request.auth.uid);
+    }
+
+    // Notifications (optional feature)
+    match /notifications/{id} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isApproved();
+      allow update, delete: if isAdmin();
+    }
+  }
+}
+

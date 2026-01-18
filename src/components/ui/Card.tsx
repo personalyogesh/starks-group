@@ -1,6 +1,17 @@
-export default function Card({ children }: { children: React.ReactNode }) {
+function cn(...classes: Array<string | undefined | false | null>) {
+  return classes.filter(Boolean).join(" ");
+}
+
+export default function Card({
+  children,
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div
+      {...props}
+      className={cn("rounded-2xl border border-slate-200 bg-white shadow-sm", className)}
+    >
       {children}
     </div>
   );

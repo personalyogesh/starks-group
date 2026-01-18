@@ -25,6 +25,18 @@ type NavItem = {
   adminOnly?: boolean;
 };
 
+function isActivePath(currentPathname: string, href: string) {
+  // Normalize common “section” routes so subpages highlight the parent.
+  if (href === "/") return currentPathname === "/";
+  if (href === "/dashboard") return currentPathname === "/dashboard" || currentPathname.startsWith("/dashboard/");
+  if (href === "/members") return currentPathname === "/members" || currentPathname.startsWith("/members/");
+  if (href === "/events") return currentPathname === "/events" || currentPathname.startsWith("/events/");
+  if (href === "/videos") return currentPathname === "/videos" || currentPathname.startsWith("/videos/");
+  if (href === "/partners") return currentPathname === "/partners" || currentPathname.startsWith("/partners/");
+  if (href === "/admin") return currentPathname === "/admin" || currentPathname.startsWith("/admin/");
+  return currentPathname === href;
+}
+
 export function MobileNav({
   isAuthenticated,
 }: {
@@ -71,6 +83,7 @@ export function MobileNav({
       { label: "Community", href: "/dashboard", icon: <Users className="size-5" /> },
       { label: "Events", href: "/events", icon: <Users className="size-5" /> },
       { label: "Members", href: "/members", icon: <Users className="size-5" /> },
+      { label: "Partners", href: "/partners", icon: <Users className="size-5" /> },
       { label: "Videos", href: "/videos", icon: <Users className="size-5" /> },
       { label: "Create Post", href: "/create-post", icon: <PlusSquare className="size-5" />, requireAuth: true },
       { label: "Profile", href: "/profile", icon: <User className="size-5" />, requireAuth: true },
@@ -117,9 +130,17 @@ export function MobileNav({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-2xl px-3 py-3 hover:bg-slate-50 transition flex items-center gap-3 text-slate-800 font-semibold"
+                  aria-current={isActivePath(pathname, item.href) ? "page" : undefined}
+                  className={[
+                    "rounded-2xl px-3 py-3 transition flex items-center gap-3 font-semibold",
+                    isActivePath(pathname, item.href)
+                      ? "bg-slate-950 text-white"
+                      : "hover:bg-slate-50 text-slate-800",
+                  ].join(" ")}
                 >
-                  <span className="text-slate-700">{item.icon}</span>
+                  <span className={isActivePath(pathname, item.href) ? "text-white" : "text-slate-700"}>
+                    {item.icon}
+                  </span>
                   <span>{item.label}</span>
                 </Link>
               ))}

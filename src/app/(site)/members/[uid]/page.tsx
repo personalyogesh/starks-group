@@ -9,13 +9,19 @@ import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import { getUser, UserDoc } from "@/lib/firestore";
 import { isFirebaseConfigured } from "@/lib/firebaseClient";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function MemberProfilePage() {
+  const { currentUser } = useAuth();
+  const viewerUid = currentUser?.authUser?.uid ?? null;
+  const isAdmin = currentUser?.userDoc?.role === "admin";
+
   const params = useParams<{ uid: string }>();
   const uid = params.uid;
 
   const [doc, setDoc] = useState<UserDoc | null>(null);
   const [loading, setLoading] = useState(true);
+  const [denied, setDenied] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -24,22 +30,41 @@ export default function MemberProfilePage() {
         setLoading(false);
         return;
       }
-      const u = await getUser(uid);
-      if (cancelled) return;
-      setDoc(u);
-      setLoading(false);
+      // For launch hardening: user docs contain sensitive fields (email/phone).
+      // Only allow self-view or admin-view.
+      if (!viewerUid) {
+        setDenied("Please sign in to view member profiles.");
+        setLoading(false);
+        return;
+      }
+      if (!isAdmin && viewerUid !== uid) {
+        setDenied("Member profiles are currently private.");
+        setLoading(false);
+        return;
+      }
+      try {
+        const u = await getUser(uid);
+        if (cancelled) return;
+        setDoc(u);
+      } catch (e: any) {
+        if (cancelled) return;
+        setDenied(e?.code === "permission-denied" ? "You don’t have access to this profile." : "Failed to load profile.");
+        setDoc(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [uid]);
+  }, [uid, viewerUid, isAdmin]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold tracking-tight">Member Profile</h1>
-          <p className="text-slate-600 mt-1">Public member view.</p>
+          <p className="text-slate-600 mt-1">Private member view.</p>
         </div>
         <Link href="/dashboard">
           <Button variant="outline">Back to Feed</Button>
@@ -55,6 +80,22 @@ export default function MemberProfilePage() {
 
       {loading ? (
         <p>Loading...</p>
+      ) : denied ? (
+        <Card>
+          <CardBody>
+            <p className="text-slate-700">{denied}</p>
+            {!viewerUid && (
+              <div className="mt-4 flex gap-2">
+                <Link href="/login">
+                  <Button variant="dark">Login</Button>
+                </Link>
+                <Link href="/register">
+                  <Button variant="outline">Register</Button>
+                </Link>
+              </div>
+            )}
+          </CardBody>
+        </Card>
       ) : !doc ? (
         <Card>
           <CardBody>
@@ -85,13 +126,10 @@ export default function MemberProfilePage() {
 
               <div className="grid gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Info label="Email" value={doc.email} />
-                  <Info label="Phone" value={doc.phone ?? "—"} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Info label="Sport interest" value={doc.sportInterest ?? "—"} />
                   <Info label="Role" value={doc.role} />
                 </div>
+                {doc.bio ? <Info label="Bio" value={doc.bio} /> : null}
               </div>
             </div>
           </CardBody>

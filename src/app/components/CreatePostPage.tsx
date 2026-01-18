@@ -15,6 +15,7 @@ import { RequireApproved } from "@/components/RequireApproved";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 function deriveTitle(body: string) {
   const s = body.trim().replace(/\s+/g, " ");
@@ -59,7 +60,8 @@ export default function CreatePostPage() {
     if (!user) return "Not logged in.";
     if (userDoc?.status !== "approved") return "Your account is pending admin approval.";
     const text = content.trim();
-    if (text.length < MIN) return `Post must be at least ${MIN} characters.`;
+    if (!text && !file) return "Add some text or a photo.";
+    if (text && text.length < MIN) return `Post must be at least ${MIN} characters (or add a photo).`;
     return null;
   }, [submitting, user, userDoc?.status, content]);
 
@@ -84,8 +86,12 @@ export default function CreatePostPage() {
     }
 
     const text = content.trim().slice(0, MAX);
-    if (text.length < MIN) {
-      setMsg({ kind: "error", text: `Post must be at least ${MIN} characters` });
+    if (!text && !file) {
+      setMsg({ kind: "error", text: "Please add some text or an image." });
+      return;
+    }
+    if (text && text.length < MIN) {
+      setMsg({ kind: "error", text: `Post must be at least ${MIN} characters (or add a photo).` });
       return;
     }
 
@@ -135,7 +141,7 @@ export default function CreatePostPage() {
         comments: [],
 
         // Back-compat fields used across the app today
-        title: deriveTitle(text),
+        title: deriveTitle(text) || (file ? "Photo" : "Post"),
         body: text,
       });
 
@@ -154,7 +160,7 @@ export default function CreatePostPage() {
     }
   }
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingSpinner message="Loading post composer..." />;
 
   return (
     <RequireApproved>
@@ -226,7 +232,11 @@ export default function CreatePostPage() {
                   onChange={(e) => setContent(e.target.value.slice(0, MAX))}
                 />
                 <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>{content.trim().length >= MIN ? "Ready to publish." : `Write at least ${MIN} characters.`}</span>
+                  <span>
+                    {content.trim().length >= MIN || Boolean(file)
+                      ? "Ready to publish."
+                      : `Write at least ${MIN} characters (or add a photo).`}
+                  </span>
                   <span>
                     {content.length}/{MAX}
                   </span>

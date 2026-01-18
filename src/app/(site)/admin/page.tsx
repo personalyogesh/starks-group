@@ -255,6 +255,11 @@ export default function AdminPage() {
                     🖼️ Manage Landing Carousel
                   </Button>
                 </Link>
+                <Link href="/admin/partners">
+                  <Button variant="outline" className="w-full">
+                    🤝 Manage Partners
+                  </Button>
+                </Link>
                 <Link href="/create-post">
                   <Button variant="outline" className="w-full">
                     📝 Create Post

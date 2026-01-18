@@ -22,6 +22,7 @@ import { getUser } from "@/lib/firestore";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { LoginSchema, loginSchema } from "@/lib/validation";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 type LoginForm = LoginSchema;
 
@@ -36,11 +37,16 @@ function mapAuthError(err: any): string {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { currentUser, loading, logout } = useAuth();
+  const { currentUser, loading, logout, loginWithGoogle } = useAuth();
 
   const [submitting, setSubmitting] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [msg, setMsg] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [lockUntilMs, setLockUntilMs] = useState<number>(0);
+  const [failCount, setFailCount] = useState<number>(0);
+
+  const locked = lockUntilMs > Date.now();
+  const lockSecondsLeft = locked ? Math.ceil((lockUntilMs - Date.now()) / 1000) : 0;
 
   // Auto-redirect if already signed in
   useEffect(() => {
@@ -81,11 +87,16 @@ export default function LoginPage() {
       email.trim().length > 0 &&
       password.trim().length > 0 &&
       isFirebaseConfigured &&
-      !submitting,
-    [email, password, submitting]
+      !submitting &&
+      !locked,
+    [email, password, submitting, locked]
   );
 
   const onSubmit = async (data: LoginForm) => {
+    if (locked) {
+      setMsg({ kind: "error", text: `Too many attempts. Please wait ${lockSecondsLeft}s and try again.` });
+      return;
+    }
     if (!isFirebaseConfigured) {
       setMsg({
         kind: "error",
@@ -130,12 +141,43 @@ export default function LoginPage() {
 
       setMsg({ kind: "success", text: "Signed in. Redirecting..." });
       router.push("/dashboard");
+      setFailCount(0);
     } catch (err: any) {
       setMsg({ kind: "error", text: mapAuthError(err) });
+      // Client-side cooldown to reduce brute-force attempts / accidental hammering.
+      setFailCount((prev) => {
+        const next = prev + 1;
+        // 3+ consecutive failures => short lock, then exponential-ish growth (capped).
+        if (next >= 3) {
+          const seconds = Math.min(120, 5 * Math.pow(2, Math.min(5, next - 3))); // 5s,10s,20s,40s,80s,120s
+          setLockUntilMs(Date.now() + seconds * 1000);
+        }
+        return next;
+      });
     } finally {
       setSubmitting(false);
     }
   };
+
+  async function onGoogle() {
+    if (locked) {
+      setMsg({ kind: "error", text: `Too many attempts. Please wait ${lockSecondsLeft}s and try again.` });
+      return;
+    }
+    setSubmitting(true);
+    setMsg(null);
+    try {
+      await loginWithGoogle();
+      setMsg({ kind: "success", text: "Signed in. Redirecting..." });
+      router.push("/dashboard");
+      setFailCount(0);
+    } catch (err: any) {
+      setMsg({ kind: "error", text: err?.message ?? "Google sign-in failed" });
+      setFailCount((prev) => prev + 1);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function forgotPassword() {
     if (!isFirebaseConfigured) {
@@ -157,7 +199,7 @@ export default function LoginPage() {
     }
   }
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingSpinner message="Checking your session..." />;
 
   // Avoid a blank screen if a user is still considered signed in (token refresh / delayed auth change).
   // We'll keep the auto-redirect effect, but always render something.
@@ -238,7 +280,26 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-8 grid gap-6">
+        <div className="mt-8">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full flex items-center justify-center gap-3 bg-white"
+            disabled={!isFirebaseConfigured || submitting || locked}
+            onClick={onGoogle}
+          >
+            <img src="/google.svg" alt="Google" className="h-5 w-5" />
+            {locked ? `Try again in ${lockSecondsLeft}s` : "Continue with Google"}
+          </Button>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px bg-slate-200 flex-1" />
+            <div className="text-sm font-semibold text-slate-500">or</div>
+            <div className="h-px bg-slate-200 flex-1" />
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-6">
           <div className="grid gap-3">
             <label className="text-xl font-semibold text-slate-950">Email</label>
             <Input
@@ -299,33 +360,8 @@ export default function LoginPage() {
           </div>
 
           <Button type="submit" variant="dark" disabled={!canSubmit} className="w-full py-4 rounded-2xl text-xl">
-            {submitting ? "Signing in..." : "Sign In"}
+            {locked ? `Try again in ${lockSecondsLeft}s` : submitting ? "Signing in..." : "Sign In"}
           </Button>
-
-          <div className="flex items-center gap-4 text-slate-500">
-            <div className="h-px flex-1 bg-slate-200" />
-            <div className="text-lg">Or continue with</div>
-            <div className="h-px flex-1 bg-slate-200" />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button
-              type="button"
-              disabled
-              className="h-14 rounded-2xl border border-slate-200 bg-white text-slate-900 font-semibold text-lg flex items-center justify-center gap-3 opacity-60 cursor-not-allowed"
-              title="Google login coming soon"
-            >
-              <span className="text-2xl font-black">G</span> Google
-            </button>
-            <button
-              type="button"
-              disabled
-              className="h-14 rounded-2xl border border-slate-200 bg-white text-slate-900 font-semibold text-lg flex items-center justify-center gap-3 opacity-60 cursor-not-allowed"
-              title="GitHub login coming soon"
-            >
-              <span className="text-2xl font-black">⌂</span> GitHub
-            </button>
-          </div>
 
           <div className="text-center text-lg text-slate-600 pt-2">
             Don&apos;t have an account?{" "}

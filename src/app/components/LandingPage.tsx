@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Calendar, MessageCircle, Users } from "lucide-react";
+import { Award, Calendar, MessageCircle, Users } from "lucide-react";
 
 import { listenCollection, EventDoc, LinkDoc, PostDoc, setRsvp } from "@/lib/firestore";
 import { useAuth } from "@/lib/AuthContext";
@@ -14,6 +14,7 @@ import Button from "@/components/ui/Button";
 import PostCard from "@/components/feed/PostCard";
 import LandingCarousel from "@/components/landing/LandingCarousel";
 import { AuthModal, AuthModalTrigger } from "@/app/components/AuthModal";
+import { getFeaturedPartners, Partner } from "@/lib/firebase/partnersService";
 
 function QrWelcomeBanner() {
   const searchParams = useSearchParams();
@@ -45,6 +46,7 @@ export default function LandingPage() {
   const [events, setEvents] = useState<Array<{ id: string; data: EventDoc }>>([]);
   const [links, setLinks] = useState<Array<{ id: string; data: LinkDoc }>>([]);
   const [posts, setPosts] = useState<Array<{ id: string; data: PostDoc }>>([]);
+  const [featuredPartners, setFeaturedPartners] = useState<Partner[]>([]);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -61,6 +63,22 @@ export default function LandingPage() {
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     return listenCollection<PostDoc>("posts", setPosts, { limit: 10 });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!isFirebaseConfigured) return;
+      try {
+        const rows = await getFeaturedPartners();
+        if (!cancelled) setFeaturedPartners(rows.slice(0, 6));
+      } catch {
+        // ignore (partners are optional content)
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -193,6 +211,61 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Partners Section - Enhanced with Real Data */}
+      <section className="px-4 py-16">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-950 mb-4">Our Partners</h2>
+            <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
+              We&apos;re proud to partner with organizations that share our commitment to building stronger communities
+              through cricket.
+            </p>
+          </div>
+
+          {featuredPartners.length > 0 ? (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+                {featuredPartners.slice(0, 8).map((partner) => (
+                  <a
+                    key={partner.id}
+                    href="/partners"
+                    className="group rounded-2xl border border-slate-200 bg-white p-6 flex items-center justify-center hover:shadow-lg transition-all cursor-pointer"
+                    title={partner.name}
+                  >
+                    {partner.logoUrl ? (
+                      <div className="relative h-16 w-full">
+                        <Image
+                          src={partner.logoUrl}
+                          alt={partner.name}
+                          fill
+                          className="object-contain grayscale group-hover:grayscale-0 transition-all"
+                        />
+                      </div>
+                    ) : (
+                      <Award className="size-10 text-slate-300" />
+                    )}
+                  </a>
+                ))}
+              </div>
+
+              <div className="text-center">
+                <a href="/partners">
+                  <Button variant="outline">View All Partners</Button>
+                </a>
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-10 flex items-center justify-center">
+                  <Award className="size-10 text-slate-300" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

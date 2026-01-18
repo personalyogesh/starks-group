@@ -19,6 +19,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 type SortMode = "upcoming" | "popular" | "recent";
 type Tab = "all" | "mine";
@@ -195,7 +196,7 @@ export default function EventsPage() {
     }
   }
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingSpinner message="Loading events..." />;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">

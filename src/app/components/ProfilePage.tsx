@@ -28,6 +28,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/ToastProvider";
 import { profileEditSchema } from "@/lib/validation";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 function tsToDate(ts: any): Date | null {
   if (!ts) return null;
@@ -305,6 +306,9 @@ export default function ProfilePage() {
   const postsCount = myPosts.length;
   const eventsCount = rsvpEventIds.length;
   const likesReceived = userDoc?.stats?.likes ?? 0;
+  const commentsReceived = useMemo(() => {
+    return myPosts.reduce((sum, p) => sum + (p.data.commentCount ?? 0), 0);
+  }, [myPosts]);
 
   const currentAvatar = avatarPreview || userDoc?.avatarUrl;
 
@@ -421,7 +425,7 @@ export default function ProfilePage() {
     setTab("about");
   }
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingSpinner message="Loading your profile..." />;
   if (!user) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-8">
@@ -520,11 +524,12 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Stats */}
-                <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-3">
                   <Stat title="Connections" value={connectionsCount} />
                   <Stat title="Posts" value={postsCount} />
                   <Stat title="Events" value={eventsCount} />
                   <Stat title="Likes" value={likesReceived} />
+                  <Stat title="Comments" value={commentsReceived} />
                 </div>
               </div>
             </div>

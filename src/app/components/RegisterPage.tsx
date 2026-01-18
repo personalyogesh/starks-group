@@ -61,7 +61,7 @@ function mapAuthError(err: any): string {
 export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { signup } = useAuth();
+  const { signup, loginWithGoogle } = useAuth();
 
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ kind: "success" | "error"; text: string } | null>(null);
@@ -220,6 +220,23 @@ export default function RegisterPage() {
     }
   };
 
+  async function onGoogleSignup() {
+    setSubmitting(true);
+    setMsg(null);
+    try {
+      await loginWithGoogle();
+      // Google users remain signed in, but are read-only until admin approval.
+      setMsg({ kind: "success", text: "Signed in with Google! Awaiting admin approval." });
+      router.push("/dashboard");
+    } catch (err: any) {
+      const text = err?.message ?? "Google sign-in failed";
+      setMsg({ kind: "error", text });
+      toast({ kind: "error", title: "Google sign-in failed", description: text });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col items-center gap-8">
       {/* Top brand */}
@@ -264,7 +281,26 @@ export default function RegisterPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-8 grid gap-6">
+        <div className="mt-8">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full flex items-center justify-center gap-3 bg-white"
+            disabled={!isFirebaseConfigured || submitting}
+            onClick={onGoogleSignup}
+          >
+            <img src="/google.svg" alt="Google" className="h-5 w-5" />
+            Sign up with Google
+          </Button>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px bg-slate-200 flex-1" />
+            <div className="text-sm font-semibold text-slate-500">or</div>
+            <div className="h-px bg-slate-200 flex-1" />
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="grid gap-3">
               <label className="text-xl font-semibold text-slate-950">First Name</label>

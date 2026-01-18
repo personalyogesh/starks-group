@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   collection,
+  doc,
   getDocs,
   limit,
   onSnapshot,
@@ -18,7 +19,14 @@ import {
 
 import { useAuth } from "@/lib/AuthContext";
 import { db, isFirebaseConfigured } from "@/lib/firebaseClient";
-import { EventDoc, getUser, PostDoc, UserDoc, VideoDoc, listenCollection } from "@/lib/firestore";
+import {
+  EventDoc,
+  PostDoc,
+  registerForEventOptIn,
+  unregisterFromEventOptIn,
+  VideoDoc,
+  listenCollection,
+} from "@/lib/firestore";
 
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -27,6 +35,8 @@ import PostCard from "@/components/feed/PostCard";
 import { UserAccountMenu } from "@/app/components/UserAccountMenu";
 import { Bell, PlusCircle } from "lucide-react";
 import { AuthModal, AuthModalTrigger } from "@/app/components/AuthModal";
+import { useToast } from "@/components/ui/ToastProvider";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 function tsToDate(ts: any): Date | null {
   if (!ts) return null;
@@ -42,6 +52,7 @@ function withinDays(ts: any, days: number) {
 }
 
 export default function UserDashboard() {
+  const { toast } = useToast();
   const { currentUser, loading, logout } = useAuth();
   const router = useRouter();
 
@@ -55,6 +66,7 @@ export default function UserDashboard() {
 
   const [events, setEvents] = useState<Array<{ id: string; data: EventDoc }>>([]);
   const [videos, setVideos] = useState<Array<{ id: string; data: VideoDoc }>>([]);
+  const [eventRegistered, setEventRegistered] = useState<Record<string, boolean>>({});
 
   const [incomingFirstPage, setIncomingFirstPage] = useState<Array<{ id: string; data: PostDoc }>>([]);
   const [appliedFirstPage, setAppliedFirstPage] = useState<Array<{ id: string; data: PostDoc }>>([]);
@@ -65,7 +77,6 @@ export default function UserDashboard() {
   const appliedCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const olderCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
 
-  const [authors, setAuthors] = useState<Record<string, UserDoc | null>>({});
   const [search, setSearch] = useState("");
   const [authGateOpen, setAuthGateOpen] = useState(false);
   const [authTrigger, setAuthTrigger] = useState<AuthModalTrigger>("general");
@@ -107,6 +118,29 @@ export default function UserDashboard() {
       unsubVideos?.();
     };
   }, []);
+
+  // Track registration state for visible sidebar events (cheap: max 6 listeners)
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    if (!uid) {
+      setEventRegistered({});
+      return;
+    }
+    const ids = events.map((e) => e.id);
+    if (ids.length === 0) return;
+    const unsubs = ids.map((eventId) =>
+      onSnapshot(
+        doc(db, "events", eventId, "rsvps", uid),
+        (snap) => {
+          setEventRegistered((prev) => ({ ...prev, [eventId]: snap.exists() }));
+        },
+        () => {
+          setEventRegistered((prev) => ({ ...prev, [eventId]: false }));
+        }
+      )
+    );
+    return () => unsubs.forEach((u) => u());
+  }, [uid, events]);
 
   // Feed: realtime for first page
   useEffect(() => {
@@ -152,38 +186,14 @@ export default function UserDashboard() {
     const q = search.trim().toLowerCase();
     if (!q) return visiblePosts;
     return visiblePosts.filter(({ data }) => {
-      const a = authors[data.createdBy];
-      const name = a?.name ?? data.authorName ?? "";
+      const name = data.authorName ?? "";
       return (
         (data.title ?? "").toLowerCase().includes(q) ||
         (data.body ?? data.content ?? "").toLowerCase().includes(q) ||
         name.toLowerCase().includes(q)
       );
     });
-  }, [visiblePosts, search, authors]);
-
-  // Fetch missing authors
-  useEffect(() => {
-    let cancelled = false;
-    const missing = new Set<string>();
-    for (const p of visiblePosts) {
-      const id = p.data.createdBy;
-      if (id && !(id in authors)) missing.add(id);
-    }
-    if (!isFirebaseConfigured || missing.size === 0) return;
-    (async () => {
-      const entries = await Promise.all(Array.from(missing).map(async (id) => [id, await getUser(id)] as const));
-      if (cancelled) return;
-      setAuthors((prev) => {
-        const next = { ...prev };
-        for (const [id, doc] of entries) next[id] = doc;
-        return next;
-      });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [visiblePosts, authors]);
+  }, [visiblePosts, search]);
 
   const postsThisWeek = useMemo(() => {
     if (!uid) return 0;
@@ -192,6 +202,36 @@ export default function UserDashboard() {
 
   const connections = userDoc?.stats?.connections ?? 0;
   const eventsJoined = userDoc?.stats?.events ?? 0;
+
+  async function toggleEventRegistration(eventId: string) {
+    if (!uid) return requireAuth("event");
+    if (!isApproved) {
+      toast({
+        kind: "error",
+        title: "Approval required",
+        description: "Your account is pending admin approval. You can browse events, but registration is disabled.",
+      });
+      return;
+    }
+    const isReg = Boolean(eventRegistered[eventId]);
+    try {
+      if (isReg) {
+        const ok = window.confirm("Unregister from this event?");
+        if (!ok) return;
+        await unregisterFromEventOptIn(eventId, uid);
+        toast({ kind: "success", title: "Unregistered", description: "You’ve been removed from the event." });
+      } else {
+        await registerForEventOptIn(eventId, uid);
+        toast({ kind: "success", title: "Registered", description: "You’re registered for this event." });
+      }
+    } catch (err: any) {
+      toast({
+        kind: "error",
+        title: "Event update failed",
+        description: err?.message ?? "Failed to update registration. Please try again.",
+      });
+    }
+  }
 
   async function loadMore() {
     if (!isFirebaseConfigured) return;
@@ -220,7 +260,7 @@ export default function UserDashboard() {
     });
   }
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingSpinner message="Loading your dashboard..." />;
 
   return (
     <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen">
@@ -371,7 +411,6 @@ export default function UserDashboard() {
                   key={id}
                   postId={id}
                   post={data}
-                  author={authors[data.createdBy]}
                   uid={uid}
                   canInteract={Boolean(isApproved && isFirebaseConfigured)}
                   isAdmin={isAdmin}
@@ -404,7 +443,13 @@ export default function UserDashboard() {
                   </div>
                 ) : (
                   <div className="grid gap-3" id="events">
-                    {events.slice(0, 2).map(({ id, data }, idx) => (
+                    {events.slice(0, 2).map(({ id, data }, idx) => {
+                      const max = data.maxParticipants ?? null;
+                      const count = data.registrationCount ?? data.registeredUsers?.length ?? 0;
+                      const isFull = typeof max === "number" && max > 0 && count >= max;
+                      const isReg = Boolean(eventRegistered[id]);
+                      const canRegister = Boolean(uid && isApproved);
+                      return (
                       <div
                         key={id}
                         className={[
@@ -424,10 +469,42 @@ export default function UserDashboard() {
                           <div>
                             <div className="font-semibold text-slate-900">{data.title}</div>
                             <div className="text-sm text-slate-600 mt-0.5">{new Date(data.dateTime).toLocaleString()}</div>
+                            <div className="text-xs text-slate-500 mt-1">
+                              {count}
+                              {typeof max === "number" && max > 0 ? ` / ${max}` : ""} registered
+                              {isFull && !isReg ? " · Full" : ""}
+                            </div>
                           </div>
                         </div>
+
+                        <div className="mt-3">
+                          {!uid ? (
+                            <Button variant="outline" className="w-full" onClick={() => requireAuth("event")}>
+                              Login to Register
+                            </Button>
+                          ) : isReg ? (
+                            <Button variant="outline" className="w-full" onClick={() => toggleEventRegistration(id)}>
+                              ✓ Registered (Tap to Unregister)
+                            </Button>
+                          ) : isFull ? (
+                            <Button variant="outline" className="w-full" disabled>
+                              Event Full
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="dark"
+                              className="w-full"
+                              disabled={!canRegister}
+                              title={!isApproved ? "Pending admin approval" : undefined}
+                              onClick={() => toggleEventRegistration(id)}
+                            >
+                              Register
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    ))}
+                      );
+                    })}
                     <Link href="/events">
                       <Button variant="outline" className="w-full">
                         View All Events

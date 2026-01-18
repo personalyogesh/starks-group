@@ -11,7 +11,6 @@ import {
   CommentDoc,
   deleteComment,
   deletePost,
-  getUser,
   listenComments,
   PostDoc,
   toggleSave,
@@ -23,6 +22,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Card, { CardBody } from "@/components/ui/Card";
 import { AuthModal, AuthModalTrigger } from "@/app/components/AuthModal";
+import { useToast } from "@/components/ui/ToastProvider";
 
 function tsToDate(ts: any): Date | null {
   if (!ts) return null;
@@ -58,14 +58,15 @@ export default function PostCard({
   canInteract: boolean;
   isAdmin?: boolean;
 }) {
-  const [authorDoc, setAuthorDoc] = useState<UserDoc | null>(author ?? null);
+  const { toast } = useToast();
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [saved, setSaved] = useState(false);
   const [saveCount, setSaveCount] = useState(0);
   const [comments, setComments] = useState<Array<{ id: string; data: CommentDoc }>>([]);
-  const [commentAuthors, setCommentAuthors] = useState<Record<string, UserDoc | null>>({});
   const [commentText, setCommentText] = useState("");
+  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
+  const [replyText, setReplyText] = useState("");
   const [commenting, setCommenting] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [authGateOpen, setAuthGateOpen] = useState(false);
@@ -75,27 +76,8 @@ export default function PostCard({
   const [editBody, setEditBody] = useState(post.body ?? "");
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    setAuthorDoc(author ?? null);
-  }, [author]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (authorDoc) return;
-    if (!isFirebaseConfigured) return;
-    const authorId = post.createdBy;
-    if (!authorId) return;
-    (async () => {
-      const u = await getUser(authorId);
-      if (cancelled) return;
-      setAuthorDoc(u);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [authorDoc, post.createdBy]);
-
-  const displayName = authorDoc?.name ?? "Member";
+  const displayName = post.authorName ?? author?.name ?? "Member";
+  const displayAvatar = post.authorAvatar ?? author?.avatarUrl ?? null;
   const created = useMemo(() => tsToDate(post.createdAt), [post.createdAt]);
   const isOwner = Boolean(uid && uid === post.createdBy);
   const canManage = Boolean(uid && (isOwner || isAdmin));
@@ -157,39 +139,21 @@ export default function PostCard({
     return listenComments(postId, setComments);
   }, [postId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const missing = new Set<string>();
-    for (const c of comments) {
-      const id = c.data.createdBy;
-      if (id && !(id in commentAuthors)) missing.add(id);
-    }
-    if (!isFirebaseConfigured || missing.size === 0) return;
-    (async () => {
-      const entries = await Promise.all(
-        Array.from(missing).map(async (id) => [id, await getUser(id)] as const)
-      );
-      if (cancelled) return;
-      setCommentAuthors((prev) => {
-        const next = { ...prev };
-        for (const [id, doc] of entries) next[id] = doc;
-        return next;
-      });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [comments, commentAuthors]);
-
-  async function submitComment() {
+  async function submitComment(opts?: { parentCommentId?: string | null }) {
     if (!uid) return;
     if (!isFirebaseConfigured) return;
-    const text = commentText.trim().slice(0, 300);
+    const raw = opts?.parentCommentId ? replyText : commentText;
+    const text = raw.trim().slice(0, 300);
     if (!text) return;
     setCommenting(true);
     try {
-      await addComment(postId, uid, text);
-      setCommentText("");
+      await addComment(postId, uid, text, opts);
+      if (opts?.parentCommentId) {
+        setReplyText("");
+        setReplyTo(null);
+      } else {
+        setCommentText("");
+      }
       setCommentsOpen(true);
     } finally {
       setCommenting(false);
@@ -227,13 +191,61 @@ export default function PostCard({
     await deleteComment(postId, commentId);
   }
 
+  async function onShare() {
+    try {
+      const origin =
+        typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
+      const url = `${origin}/dashboard?post=${encodeURIComponent(postId)}`;
+      await navigator.clipboard.writeText(url);
+      toast({ kind: "success", title: "Link copied", description: "You can paste it anywhere." });
+    } catch {
+      toast({
+        kind: "error",
+        title: "Copy failed",
+        description: "Your browser blocked clipboard access. Try copying the URL from the address bar.",
+      });
+    }
+  }
+
+  const commentChildren = useMemo(() => {
+    const map = new Map<string, Array<{ id: string; data: CommentDoc }>>();
+    for (const c of comments) {
+      const parent = c.data.parentCommentId ?? null;
+      if (!parent) continue;
+      const arr = map.get(parent) ?? [];
+      arr.push(c);
+      map.set(parent, arr);
+    }
+    // oldest-first within a thread
+    for (const [k, arr] of map.entries()) {
+      arr.sort((a, b) => {
+        const ad = tsToDate(a.data.createdAt)?.getTime() ?? 0;
+        const bd = tsToDate(b.data.createdAt)?.getTime() ?? 0;
+        return ad - bd;
+      });
+      map.set(k, arr);
+    }
+    return map;
+  }, [comments]);
+
+  const rootComments = useMemo(() => {
+    const roots = comments.filter((c) => !c.data.parentCommentId);
+    // oldest-first for readability
+    roots.sort((a, b) => {
+      const ad = tsToDate(a.data.createdAt)?.getTime() ?? 0;
+      const bd = tsToDate(b.data.createdAt)?.getTime() ?? 0;
+      return ad - bd;
+    });
+    return roots;
+  }, [comments]);
+
   return (
     <Card>
       <CardBody>
         <div className="flex items-start gap-3">
           <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-200 relative shrink-0">
-            {authorDoc?.avatarUrl ? (
-              <Image src={authorDoc.avatarUrl} alt="" fill className="object-cover" />
+            {displayAvatar ? (
+              <Image src={displayAvatar} alt="" fill className="object-cover" />
             ) : (
               <div className="h-full w-full grid place-items-center text-xs font-bold text-slate-700">
                 {displayName
@@ -275,13 +287,7 @@ export default function PostCard({
                   </Button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  className="h-9 w-9 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition grid place-items-center text-slate-500"
-                  aria-label="Post actions"
-                >
-                  <span className="text-xl">⋯</span>
-                </button>
+                <div />
               )}
             </div>
 
@@ -372,59 +378,184 @@ export default function PostCard({
                 <span className={saved ? "text-slate-900" : "text-slate-500"}>{saved ? "🔖" : "📑"}</span>{" "}
                 Save <span className="text-slate-400">({saveCount})</span>
               </button>
+
+              <button
+                type="button"
+                className="ml-auto inline-flex items-center gap-2 hover:text-slate-900"
+                onClick={onShare}
+                title="Copy link"
+              >
+                🔗 Share
+              </button>
             </div>
 
             {(commentsOpen || comments.length > 0) && (
               <div className="mt-4 border-t border-slate-100 pt-4">
-                {comments.length > 0 && (
+                {comments.length > 0 ? (
                   <div className="grid gap-3">
-                    {comments.map(({ id, data }) => {
-                      const a = commentAuthors[data.createdBy];
-                      const canDelete = Boolean(uid && (uid === data.createdBy || isAdmin));
+                    {rootComments.map(({ id, data }) => {
+                      const aName = data.authorName ?? "Member";
                       const when = timeAgo(tsToDate(data.createdAt));
                       const initials =
-                        (a?.name ?? "M")
+                        (aName ?? "M")
                           .split(/\s+/)
                           .slice(0, 2)
                           .map((p) => p[0]?.toUpperCase())
                           .join("") || "M";
 
+                      const replies = commentChildren.get(id) ?? [];
+                      const hasReplies = replies.length > 0;
+                      const canDelete = Boolean(uid && (uid === data.createdBy || isAdmin));
+                      const deleteDisabled = hasReplies; // MVP: avoid orphaning replies
+
                       return (
-                        <div key={id} className="flex items-start gap-3">
-                          <div className="h-9 w-9 rounded-full overflow-hidden bg-slate-200 relative shrink-0">
-                            {a?.avatarUrl ? (
-                              <Image src={a.avatarUrl} alt="" fill className="object-cover" />
-                            ) : (
-                              <div className="h-full w-full grid place-items-center text-[11px] font-bold text-slate-700">
-                                {initials}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="text-sm">
-                                <span className="font-semibold text-slate-900">
-                                  {a?.name ?? "Member"}
-                                </span>
-                                <span className="text-slate-400"> · {when}</span>
-                              </div>
-                              {canDelete && (
-                                <button
-                                  type="button"
-                                  className="text-xs font-semibold text-rose-700 hover:underline"
-                                  onClick={() => onDeleteComment(id)}
-                                >
-                                  Delete
-                                </button>
+                        <div key={id} className="grid gap-2">
+                          <div className="flex items-start gap-3">
+                            <div className="h-9 w-9 rounded-full overflow-hidden bg-slate-200 relative shrink-0">
+                              {data.authorAvatar ? (
+                                <Image src={data.authorAvatar} alt="" fill className="object-cover" />
+                              ) : (
+                                <div className="h-full w-full grid place-items-center text-[11px] font-bold text-slate-700">
+                                  {initials}
+                                </div>
                               )}
                             </div>
-                            <div className="mt-1 text-sm text-slate-800 whitespace-pre-wrap">
-                              {data.body}
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="text-sm">
+                                  <span className="font-semibold text-slate-900">{aName}</span>
+                                  <span className="text-slate-400"> · {when}</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    className="text-xs font-semibold text-slate-700 hover:underline"
+                                    onClick={() => {
+                                      if (!uid) {
+                                        setAuthTrigger("comment");
+                                        setAuthGateOpen(true);
+                                        return;
+                                      }
+                                      setReplyTo({ id, name: aName });
+                                      setCommentsOpen(true);
+                                    }}
+                                  >
+                                    Reply
+                                  </button>
+                                  {canDelete && (
+                                    <button
+                                      type="button"
+                                      className={[
+                                        "text-xs font-semibold",
+                                        deleteDisabled ? "text-slate-400 cursor-not-allowed" : "text-rose-700 hover:underline",
+                                      ].join(" ")}
+                                      title={deleteDisabled ? "Deleting comments with replies isn’t supported yet." : "Delete"}
+                                      onClick={() => {
+                                        if (deleteDisabled) return;
+                                        onDeleteComment(id);
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="mt-1 text-sm text-slate-800 whitespace-pre-wrap">{data.body}</div>
                             </div>
                           </div>
+
+                          {replies.length > 0 && (
+                            <div className="ml-10 grid gap-2">
+                              {replies.map(({ id: rid, data: rdata }) => {
+                                const rName = rdata.authorName ?? "Member";
+                                const rwhen = timeAgo(tsToDate(rdata.createdAt));
+                                const rinitials =
+                                  (rName ?? "M")
+                                    .split(/\s+/)
+                                    .slice(0, 2)
+                                    .map((p) => p[0]?.toUpperCase())
+                                    .join("") || "M";
+                                const rCanDelete = Boolean(uid && (uid === rdata.createdBy || isAdmin));
+                                return (
+                                  <div key={rid} className="flex items-start gap-3">
+                                    <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 relative shrink-0">
+                                      {rdata.authorAvatar ? (
+                                        <Image src={rdata.authorAvatar} alt="" fill className="object-cover" />
+                                      ) : (
+                                        <div className="h-full w-full grid place-items-center text-[10px] font-bold text-slate-700">
+                                          {rinitials}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="text-sm">
+                                          <span className="font-semibold text-slate-900">{rName}</span>
+                                          <span className="text-slate-400"> · {rwhen}</span>
+                                        </div>
+                                        {rCanDelete && (
+                                          <button
+                                            type="button"
+                                            className="text-xs font-semibold text-rose-700 hover:underline"
+                                            onClick={() => onDeleteComment(rid)}
+                                          >
+                                            Delete
+                                          </button>
+                                        )}
+                                      </div>
+                                      <div className="mt-1 text-sm text-slate-800 whitespace-pre-wrap">{rdata.body}</div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {replyTo?.id === id && uid && (
+                            <div className="ml-10 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="text-xs font-semibold text-slate-600">
+                                  Replying to <span className="text-slate-900">{replyTo.name}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="text-xs font-semibold text-slate-600 hover:underline"
+                                  onClick={() => {
+                                    setReplyTo(null);
+                                    setReplyText("");
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                              <textarea
+                                className="mt-2 w-full rounded-xl border border-slate-100 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary min-h-16"
+                                placeholder={canInteract ? "Write a reply..." : "Approval required to comment"}
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value.slice(0, 300))}
+                                disabled={!canInteract}
+                              />
+                              <div className="mt-2 flex items-center justify-between">
+                                <div className="text-xs text-slate-500">{replyText.length}/300</div>
+                                <Button
+                                  variant="dark"
+                                  size="sm"
+                                  type="button"
+                                  disabled={!canInteract || commenting || !replyText.trim()}
+                                  onClick={() => submitComment({ parentCommentId: id })}
+                                >
+                                  {commenting ? "Posting..." : "Reply"}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700 text-center">
+                    No comments yet — be the first to start the conversation.
                   </div>
                 )}
 
@@ -464,7 +595,7 @@ export default function PostCard({
                             variant="dark"
                             type="button"
                             disabled={!canInteract || commenting || !commentText.trim()}
-                            onClick={submitComment}
+                            onClick={() => submitComment({ parentCommentId: null })}
                           >
                             {commenting ? "Posting..." : "Post"}
                           </Button>

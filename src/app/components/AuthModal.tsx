@@ -28,7 +28,7 @@ export function AuthModal({
   trigger?: AuthModalTrigger;
 }) {
   const router = useRouter();
-  const { login, loading } = useAuth();
+  const { login, loginWithGoogle, loading } = useAuth();
 
   const [tab, setTab] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -60,6 +60,19 @@ export function AuthModal({
       setPassword("");
     } catch (e: any) {
       setError(e?.message || "Login failed. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleGoogle() {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await loginWithGoogle();
+      onOpenChange(false);
+    } catch (e: any) {
+      setError(e?.message || "Google sign-in failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -148,6 +161,23 @@ export function AuthModal({
 
           {tab === "login" ? (
             <div className="mt-5 space-y-4">
+              <Button
+                variant="outline"
+                className="w-full flex items-center justify-center gap-3 bg-white"
+                disabled={loading || submitting}
+                onClick={handleGoogle}
+                type="button"
+              >
+                <img src="/google.svg" alt="Google" className="h-5 w-5" />
+                Continue with Google
+              </Button>
+
+              <div className="flex items-center gap-3">
+                <div className="h-px bg-slate-200 flex-1" />
+                <div className="text-xs font-semibold text-slate-500">or</div>
+                <div className="h-px bg-slate-200 flex-1" />
+              </div>
+
               <div>
                 <div className="text-sm font-bold text-slate-800 mb-2">Email</div>
                 <Input
