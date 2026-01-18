@@ -6,7 +6,6 @@ import { isFirebaseConfigured } from "@/lib/firebaseClient";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import QRCode from "qrcode";
 
 export default function AdminQRCodesPage() {
   const [mode, setMode] = useState<"preset" | "custom">("preset");
@@ -25,8 +24,14 @@ export default function AdminQRCodesPage() {
 
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<number | null>(null);
+  const [generating, setGenerating] = useState(false);
 
-  const isValid = useMemo(() => text.trim().length > 0, [text]);
+  const isValid = useMemo(() => {
+    if (mode === "custom") return customText.trim().length > 0;
+    // For presets, allow generating even if origin hasn't hydrated yet; we'll validate at click time.
+    return true;
+  }, [mode, customText, origin]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -49,19 +54,44 @@ export default function AdminQRCodesPage() {
     return null;
   }, [text]);
 
-  async function generate(e: React.FormEvent) {
-    e.preventDefault();
+  function computeTarget() {
+    const currentOrigin = origin || (typeof window !== "undefined" ? window.location.origin : "");
+    const target =
+      mode === "custom"
+        ? customText.trim()
+        : preset === "home"
+          ? `${currentOrigin}/?source=qr`
+          : preset === "login"
+            ? `${currentOrigin}/login?source=qr`
+            : `${currentOrigin}/register?source=qr`;
+    return target || "";
+  }
+
+  async function generate() {
     setMsg(null);
+    setGenerating(true);
+    setLastGeneratedAt(Date.now());
 
     try {
-      const url = await QRCode.toDataURL(text.trim(), {
+      const target = computeTarget();
+      if (!target.trim()) throw new Error("Missing QR target. Please try again.");
+
+      const mod: any = await import("qrcode");
+      const QRCode = mod?.default ?? mod;
+      if (!QRCode?.toDataURL) throw new Error("QR library failed to load.");
+
+      const url = await QRCode.toDataURL(target, {
         margin: 2,
         width: 512,
         color: { dark: "#0F4F6C", light: "#FFFFFF" },
       });
       setDataUrl(url);
     } catch (err: any) {
+      console.warn("[AdminQRCodesPage] failed to generate QR", err);
       setMsg(err?.message ?? "Failed to generate QR code");
+      setDataUrl(null);
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -100,7 +130,13 @@ export default function AdminQRCodesPage() {
                 </div>
               )}
 
-              <form onSubmit={generate} className="grid gap-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  generate();
+                }}
+                className="grid gap-4"
+              >
                 <div className="grid gap-2">
                   <label className="text-sm font-semibold">Destination</label>
                   <div className="flex flex-wrap gap-2">
@@ -172,13 +208,32 @@ export default function AdminQRCodesPage() {
                       required
                     />
                   )}
+
+                  <div className="pt-1">
+                    <Button
+                      type="button"
+                      variant="dark"
+                      disabled={!isValid || generating}
+                      onClick={() => generate()}
+                    >
+                      {generating ? "Generating..." : "Generate QR"}
+                    </Button>
+                  </div>
+
                   <div className="text-xs text-slate-500">
                     QR target: <span className="font-mono break-all">{text || "—"}</span>
                   </div>
+                  <div className="text-[11px] text-slate-400">
+                    Debug: origin=<span className="font-mono">{origin || "(loading)"}</span> · computedTarget=
+                    <span className="font-mono break-all"> {computeTarget() || "—"}</span>
+                    {lastGeneratedAt ? (
+                      <span className="ml-2">· last generated {new Date(lastGeneratedAt).toLocaleTimeString()}</span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="flex justify-end">
-                  <Button type="submit" disabled={!isValid}>
-                    Generate
+                  <Button type="button" disabled={!isValid || generating} onClick={() => generate()}>
+                    {generating ? "Generating..." : "Generate"}
                   </Button>
                 </div>
               </form>
