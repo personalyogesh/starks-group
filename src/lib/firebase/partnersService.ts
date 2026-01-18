@@ -7,7 +7,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -57,18 +56,30 @@ function assertFirebase() {
   if (!isFirebaseConfigured) throw new Error("Firebase isn’t configured.");
 }
 
+const TIER_ORDER: PartnerTier[] = ["platinum", "gold", "silver", "bronze", "community"];
+function sortPartners(a: Partner, b: Partner) {
+  const ta = TIER_ORDER.indexOf(a.tier);
+  const tb = TIER_ORDER.indexOf(b.tier);
+  if (ta !== tb) return ta - tb;
+  return String(a.name ?? "").localeCompare(String(b.name ?? ""), undefined, { sensitivity: "base" });
+}
+
 export async function getAllPartners(): Promise<Partner[]> {
   assertFirebase();
-  const q = query(collection(db, "partners"), orderBy("tier", "asc"), orderBy("name", "asc"));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Partner, "id">) })) as Partner[];
+  // Avoid composite index requirements (tier+name). Partners list is typically small; sort client-side.
+  const snap = await getDocs(collection(db, "partners"));
+  const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Partner, "id">) })) as Partner[];
+  rows.sort(sortPartners);
+  return rows;
 }
 
 export async function getFeaturedPartners(): Promise<Partner[]> {
   assertFirebase();
-  const q = query(collection(db, "partners"), where("featured", "==", true), orderBy("tier", "asc"));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Partner, "id">) })) as Partner[];
+  // Avoid composite indexes (featured+tier). Filter in query, sort client-side.
+  const snap = await getDocs(query(collection(db, "partners"), where("featured", "==", true)));
+  const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Partner, "id">) })) as Partner[];
+  rows.sort(sortPartners);
+  return rows;
 }
 
 export async function getPartner(partnerId: string): Promise<Partner | null> {
@@ -237,8 +248,10 @@ export async function deletePartner(partnerId: string): Promise<void> {
 
 export async function getPartnersByTier(tier: PartnerTier): Promise<Partner[]> {
   assertFirebase();
-  const q = query(collection(db, "partners"), where("tier", "==", tier), orderBy("name", "asc"));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Partner, "id">) })) as Partner[];
+  // Avoid composite index (tier+name). Filter in query, sort client-side.
+  const snap = await getDocs(query(collection(db, "partners"), where("tier", "==", tier)));
+  const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Partner, "id">) })) as Partner[];
+  rows.sort((a, b) => String(a.name ?? "").localeCompare(String(b.name ?? ""), undefined, { sensitivity: "base" }));
+  return rows;
 }
 
