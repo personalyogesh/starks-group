@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { useAuth } from "@/lib/AuthContext";
@@ -160,11 +161,11 @@ export default function CreatePostPage() {
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
         {/* Top bar */}
         <div className="flex items-center justify-between">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900"
-          >
-            <span className="text-lg">←</span> Back
+          <Link href="/dashboard" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <ArrowLeft className="size-4" />
+              Back to Dashboard
+            </span>
           </Link>
           <Button
             variant="outline"

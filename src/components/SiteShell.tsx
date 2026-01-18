@@ -4,11 +4,34 @@ import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 
 import { AuthProvider } from "@/lib/AuthContext";
+import { useAuth } from "@/lib/AuthContext";
 import DashboardHeader from "@/components/DashboardHeader";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import Container from "@/components/ui/Container";
 import { ToastProvider } from "@/components/ui/ToastProvider";
+
+function AuthStatusIndicator({ pathname }: { pathname: string }) {
+  const { currentUser } = useAuth();
+  const showAuthIndicator = process.env.NODE_ENV !== "production" && pathname !== "/";
+  if (!showAuthIndicator) return null;
+
+  return (
+    <div className="fixed bottom-8 left-8 z-50 px-4 py-2 bg-slate-950 text-white rounded-full shadow-lg text-sm">
+      {currentUser
+        ? `✓ Logged in as ${
+            currentUser.userDoc?.firstName || currentUser.userDoc?.name || currentUser.authUser.email || "User"
+          }`
+        : "○ Browsing as guest"}
+    </div>
+  );
+}
+
+function AppShellMain({ children }: { children: React.ReactNode }) {
+  const { currentUser } = useAuth();
+  const padForBottomNav = Boolean(currentUser);
+  return <main className={["flex-1", padForBottomNav ? "pb-20 md:pb-0" : ""].join(" ")}>{children}</main>;
+}
 
 export default function SiteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -20,7 +43,9 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/members/") ||
     pathname === "/members" ||
     pathname === "/profile" ||
-    pathname === "/videos";
+    pathname === "/videos" ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/");
 
   return (
     <AuthProvider>
@@ -35,7 +60,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
           )}
 
           {isAppShell ? (
-            <main className="flex-1">{children}</main>
+            <AppShellMain>{children}</AppShellMain>
           ) : (
             <>
               <main className="py-8 flex-1">
@@ -44,6 +69,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
               <Footer />
             </>
           )}
+          <AuthStatusIndicator pathname={pathname} />
         </div>
       </ToastProvider>
     </AuthProvider>

@@ -170,7 +170,7 @@ export default function LoginPage() {
             Redirecting to your dashboard… If you meant to switch accounts, sign out first.
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Button variant="dark" onClick={() => router.replace("/dashboard")}>
+            <Button variant="dark" onClick={() => router.push("/dashboard")}>
               Go to Dashboard
             </Button>
             <Button
@@ -179,7 +179,7 @@ export default function LoginPage() {
                 setSubmitting(true);
                 try {
                   await logout();
-                  router.replace("/login");
+                  router.push("/login");
                 } finally {
                   setSubmitting(false);
                 }
@@ -197,7 +197,11 @@ export default function LoginPage() {
     <div className="flex flex-col items-center gap-8">
       {/* Top brand */}
       <div className="text-center">
-        <div className="flex items-center justify-center gap-4">
+        <Link
+          href="/"
+          aria-label="Go to home"
+          className="inline-flex items-center justify-center gap-4 hover:opacity-80 transition-opacity"
+        >
           <Image
             src={logo}
             alt="Starks Cricket"
@@ -209,7 +213,7 @@ export default function LoginPage() {
             <div className="text-4xl font-extrabold tracking-tight text-brand-deep">Starks Cricket</div>
             <div className="text-2xl text-slate-600">Estd. 2018</div>
           </div>
-        </div>
+        </Link>
 
         <div className="mt-8 text-2xl text-slate-600">Welcome back to the community</div>
       </div>

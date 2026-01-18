@@ -22,6 +22,7 @@ import {
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Card, { CardBody } from "@/components/ui/Card";
+import { AuthModal, AuthModalTrigger } from "@/app/components/AuthModal";
 
 function tsToDate(ts: any): Date | null {
   if (!ts) return null;
@@ -67,6 +68,8 @@ export default function PostCard({
   const [commentText, setCommentText] = useState("");
   const [commenting, setCommenting] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [authGateOpen, setAuthGateOpen] = useState(false);
+  const [authTrigger, setAuthTrigger] = useState<AuthModalTrigger>("general");
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(post.title ?? "");
   const [editBody, setEditBody] = useState(post.body ?? "");
@@ -336,8 +339,12 @@ export default function PostCard({
               <button
                 type="button"
                 className="inline-flex items-center gap-2 hover:text-slate-900 disabled:opacity-50"
-                disabled={!canInteract}
-                onClick={() => canInteract && uid && toggleLike(postId, uid, !liked)}
+                disabled={uid ? !canInteract : false}
+                onClick={() => {
+                  if (!uid) return setAuthGateOpen(true);
+                  if (!canInteract) return;
+                  return toggleLike(postId, uid, !liked);
+                }}
               >
                 <span className={liked ? "text-rose-500" : ""}>♥</span>{" "}
                 {liked ? "Liked" : "Like"} <span className="text-slate-400">({likeCount})</span>
@@ -346,7 +353,6 @@ export default function PostCard({
               <button
                 type="button"
                 className="inline-flex items-center gap-2 hover:text-slate-900 disabled:opacity-50"
-                disabled={!canInteract}
                 onClick={() => setCommentsOpen((v) => !v)}
               >
                 💬 Comment <span className="text-slate-400">({comments.length})</span>
@@ -355,8 +361,12 @@ export default function PostCard({
               <button
                 type="button"
                 className="inline-flex items-center gap-2 hover:text-slate-900 disabled:opacity-50"
-                disabled={!canInteract}
-                onClick={() => canInteract && uid && toggleSave(postId, uid, !saved)}
+                disabled={uid ? !canInteract : false}
+                onClick={() => {
+                  if (!uid) return setAuthGateOpen(true);
+                  if (!canInteract) return;
+                  return toggleSave(postId, uid, !saved);
+                }}
                 title={saved ? "Remove bookmark" : "Save / bookmark"}
               >
                 <span className={saved ? "text-slate-900" : "text-slate-500"}>{saved ? "🔖" : "📑"}</span>{" "}
@@ -420,26 +430,47 @@ export default function PostCard({
 
                 <div className="mt-4">
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <textarea
-                      className="w-full rounded-xl border border-slate-100 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary min-h-20"
-                      placeholder={
-                        canInteract ? "Write a comment..." : "Approval required to comment"
-                      }
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value.slice(0, 300))}
-                      disabled={!canInteract}
-                    />
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="text-xs text-slate-500">{commentText.length}/300</div>
-                      <Button
-                        variant="dark"
-                        type="button"
-                        disabled={!canInteract || commenting || !commentText.trim()}
-                        onClick={submitComment}
-                      >
-                        {commenting ? "Posting..." : "Post"}
-                      </Button>
-                    </div>
+                    {!uid ? (
+                      <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-4 text-center">
+                        <div className="text-sm text-slate-800">
+                          <span className="font-extrabold">Want to comment?</span> Join the community to share your
+                          thoughts.
+                        </div>
+                        <div className="mt-3 flex justify-center">
+                          <Button
+                            variant="dark"
+                            type="button"
+                            onClick={() => {
+                              setAuthTrigger("comment");
+                              setAuthGateOpen(true);
+                            }}
+                          >
+                            Sign up / Login to comment
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <textarea
+                          className="w-full rounded-xl border border-slate-100 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary min-h-20"
+                          placeholder={canInteract ? "Write a comment..." : "Approval required to comment"}
+                          value={commentText}
+                          onChange={(e) => setCommentText(e.target.value.slice(0, 300))}
+                          disabled={!canInteract}
+                        />
+                        <div className="mt-2 flex items-center justify-between">
+                          <div className="text-xs text-slate-500">{commentText.length}/300</div>
+                          <Button
+                            variant="dark"
+                            type="button"
+                            disabled={!canInteract || commenting || !commentText.trim()}
+                            onClick={submitComment}
+                          >
+                            {commenting ? "Posting..." : "Post"}
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -447,6 +478,7 @@ export default function PostCard({
           </div>
         </div>
       </CardBody>
+      <AuthModal open={authGateOpen} onOpenChange={setAuthGateOpen} trigger={authTrigger} />
     </Card>
   );
 }

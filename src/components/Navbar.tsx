@@ -6,18 +6,24 @@ import { useAuth } from "@/lib/AuthContext";
 import logo from "@/assets/starks-logo.jpg";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
+import { MobileNav } from "@/app/components/MobileNav";
 
 export default function Navbar() {
   const { currentUser, logout } = useAuth();
   const user = currentUser?.authUser ?? null;
   const userDoc = currentUser?.userDoc ?? null;
+  const isLoggedIn = Boolean(user);
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
       <Container>
         <div className="py-4 flex items-center justify-between gap-4 relative">
           {/* Left: brand */}
-          <Link href="/" className="flex items-center gap-3 whitespace-nowrap">
+          <Link
+            href={isLoggedIn ? "/dashboard" : "/"}
+            aria-label="Go to home"
+            className="flex items-center gap-3 whitespace-nowrap hover:opacity-80 transition-opacity"
+          >
             <Image
               src={logo}
               alt="Starks Cricket"
@@ -35,25 +41,26 @@ export default function Navbar() {
 
           {/* Center: nav (desktop) — absolute center to match Figma even when right side changes */}
           <nav className="hidden md:flex items-center gap-2 text-sm font-semibold text-slate-600 absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
-            <a className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="#about">
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="/#about">
               About
-            </a>
-            <a className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="#programs">
+            </Link>
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="/#programs">
               Programs
-            </a>
-            <a className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="#events">
+            </Link>
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href={isLoggedIn ? "/events" : "/#events"}>
               Events
-            </a>
-            <a className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="#partners">
+            </Link>
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="/#partners">
               Partners
-            </a>
-            <a className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="#community">
+            </Link>
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="/dashboard">
               Community
-            </a>
+            </Link>
           </nav>
 
           {/* Right: actions */}
           <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+            <MobileNav isAuthenticated={isLoggedIn} />
             {user ? (
               <>
                 <Link href="/create-post" className="hidden sm:inline-flex">

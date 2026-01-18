@@ -24,6 +24,9 @@ import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import PostCard from "@/components/feed/PostCard";
+import { UserAccountMenu } from "@/app/components/UserAccountMenu";
+import { Bell, PlusCircle } from "lucide-react";
+import { AuthModal, AuthModalTrigger } from "@/app/components/AuthModal";
 
 function tsToDate(ts: any): Date | null {
   if (!ts) return null;
@@ -39,7 +42,7 @@ function withinDays(ts: any, days: number) {
 }
 
 export default function UserDashboard() {
-  const { currentUser, loading } = useAuth();
+  const { currentUser, loading, logout } = useAuth();
   const router = useRouter();
 
   const user = currentUser?.authUser ?? null;
@@ -64,10 +67,26 @@ export default function UserDashboard() {
 
   const [authors, setAuthors] = useState<Record<string, UserDoc | null>>({});
   const [search, setSearch] = useState("");
+  const [authGateOpen, setAuthGateOpen] = useState(false);
+  const [authTrigger, setAuthTrigger] = useState<AuthModalTrigger>("general");
+
+  const onNavigate = (page: string) => {
+    if (page === "landing") return router.push("/");
+    if (page === "create-post") return router.push("/create-post");
+    if (page === "profile" || page === "edit-profile" || page === "settings") return router.push("/profile");
+    if (page === "notifications") return router.push("/dashboard");
+    if (page === "help") return router.push("/#about");
+    if (page === "admin" && isAdmin) return router.push("/admin");
+  };
+
+  const requireAuth = (trigger: AuthModalTrigger) => {
+    setAuthTrigger(trigger);
+    setAuthGateOpen(true);
+  };
 
   useEffect(() => {
+    // Dashboard is public-read: do not redirect to login.
     if (loading) return;
-    if (!currentUser) router.replace("/login");
   }, [loading, currentUser, router]);
 
   // Right sidebar listeners
@@ -202,15 +221,15 @@ export default function UserDashboard() {
   }
 
   if (loading) return <p>Loading...</p>;
-  if (!currentUser) return null;
 
   return (
     <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen">
       <div className="max-w-6xl mx-auto px-4 py-8">
         {!isApproved && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Your account is pending admin approval. You can browse the feed, but posting/likes/comments are disabled until
-            you’re approved.
+            {currentUser
+              ? "Your account is pending admin approval. You can browse the feed, but posting/likes/comments are disabled until you’re approved."
+              : "You’re viewing the public community feed. Sign in to interact (like, comment, post, and register for events)."}
           </div>
         )}
 
@@ -264,19 +283,72 @@ export default function UserDashboard() {
                   <div className="h-10 w-10 rounded-full bg-slate-200 grid place-items-center text-xs font-bold text-slate-700">
                     You
                   </div>
-                  <Link href="/create-post" className="flex-1">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 hover:bg-slate-100 transition">
+                  {currentUser ? (
+                    <Link href="/create-post" className="flex-1">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 hover:bg-slate-100 transition">
+                        Share your thoughts, photos, or achievements...
+                      </div>
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex-1 text-left rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 hover:bg-slate-100 transition"
+                      onClick={() => setAuthGateOpen(true)}
+                    >
                       Share your thoughts, photos, or achievements...
-                    </div>
-                  </Link>
+                    </button>
+                  )}
                 </div>
                 <div className="mt-4 border-t border-slate-100 pt-4 flex items-center gap-3 text-sm text-slate-600">
-                  <div className="ml-auto hidden sm:block w-64">
+                  <div className="hidden sm:block w-72">
                     <Input
                       className="bg-slate-50 border-slate-200"
                       placeholder="Search posts or members..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="ml-auto flex items-center gap-3">
+                    {/* Notifications Button */}
+                    <button
+                      type="button"
+                      className="relative h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition grid place-items-center"
+                      aria-label="Notifications"
+                      onClick={() => onNavigate("notifications")}
+                    >
+                      <Bell className="size-5 text-slate-700" />
+                      <span className="absolute top-2.5 right-2.5 size-2 bg-red-500 rounded-full"></span>
+                    </button>
+
+                    {/* Create Post Button */}
+                    <Button
+                      variant="dark"
+                      className="hidden sm:inline-flex items-center"
+                      onClick={() => (currentUser ? onNavigate("create-post") : requireAuth("post"))}
+                    >
+                      <PlusCircle className="size-4 mr-2" />
+                      Create Post
+                    </Button>
+
+                    {/* User Account Menu */}
+                    <UserAccountMenu
+                      user={{
+                        name:
+                          userDoc?.name ||
+                          `${userDoc?.firstName ?? ""} ${userDoc?.lastName ?? ""}`.trim() ||
+                          user?.email ||
+                          "Account",
+                        email: user?.email ?? "",
+                        avatar: userDoc?.avatarUrl,
+                        role: userDoc?.joinAs ?? userDoc?.role,
+                      }}
+                      notificationCount={5}
+                      onNavigate={onNavigate}
+                      onLogout={async () => {
+                        await logout();
+                        onNavigate("landing");
+                      }}
                     />
                   </div>
                 </div>
@@ -419,6 +491,8 @@ export default function UserDashboard() {
           </aside>
         </div>
       </div>
+      {/* Auth gate for public viewers */}
+      <AuthModal open={authGateOpen} onOpenChange={setAuthGateOpen} trigger={authTrigger} />
     </div>
   );
 }

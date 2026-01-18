@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -12,6 +13,7 @@ import {
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { useAuth } from "@/lib/AuthContext";
+import { Breadcrumbs } from "@/app/components/Breadcrumbs";
 import {
   getFirebaseStorageBucketTroubleshootingMessage,
   isFirebaseConfigured,
@@ -97,6 +99,7 @@ function selectedSports(map: Record<string, boolean>) {
 export default function ProfilePage() {
   const { toast } = useToast();
   const { currentUser, loading, updateProfile } = useAuth();
+  const router = useRouter();
   const user = currentUser?.authUser ?? null;
   const userDoc = currentUser?.userDoc ?? null;
   const uid = user?.uid ?? "";
@@ -432,6 +435,13 @@ export default function ProfilePage() {
   return (
     <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen">
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+        <Breadcrumbs
+          items={[
+            { label: "Dashboard", href: "/dashboard" },
+            { label: "Profile", onClick: () => router.push("/profile") },
+          ]}
+        />
+
         {permError && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {permError}

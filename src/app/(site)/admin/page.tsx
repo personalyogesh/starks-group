@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { RequireAdmin } from "@/components/RequireAdmin";
+import { Breadcrumbs } from "@/app/components/Breadcrumbs";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -34,6 +36,7 @@ import { adminBootstrapAdminClaim, adminDeleteAuthUser, adminSetUserRole } from 
 
 export default function AdminPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [stats, setStats] = useState<{
     totalUsers: number | null;
     activeMembers: number | null;
@@ -189,6 +192,13 @@ export default function AdminPage() {
   return (
     <RequireAdmin>
       <div className="space-y-8">
+        <Breadcrumbs
+          items={[
+            { label: "Dashboard", href: "/dashboard" },
+            { label: "Admin", onClick: () => router.push("/admin") },
+          ]}
+        />
+
         {/* Admin header row (per mockup) */}
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -199,7 +209,7 @@ export default function AdminPage() {
             <span className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold">
               🛡️ Administrator
             </span>
-            <Link href="/">
+            <Link href="/dashboard">
               <Button variant="outline">Back to Feed</Button>
             </Link>
           </div>

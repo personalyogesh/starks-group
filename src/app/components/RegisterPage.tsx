@@ -224,7 +224,11 @@ export default function RegisterPage() {
     <div className="flex flex-col items-center gap-8">
       {/* Top brand */}
       <div className="text-center">
-        <div className="flex items-center justify-center gap-4">
+        <Link
+          href="/"
+          aria-label="Go to home"
+          className="inline-flex items-center justify-center gap-4 hover:opacity-80 transition-opacity"
+        >
           <Image
             src={logo}
             alt="Starks Cricket"
@@ -236,7 +240,7 @@ export default function RegisterPage() {
             <div className="text-4xl font-extrabold tracking-tight text-brand-deep">Starks Cricket</div>
             <div className="text-2xl text-slate-600">Estd. 2018</div>
           </div>
-        </div>
+        </Link>
         <div className="mt-8 text-2xl text-slate-600">Join our community today</div>
       </div>
 

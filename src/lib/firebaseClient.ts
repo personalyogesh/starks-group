@@ -38,24 +38,36 @@ export function isFirebaseStorageBucketLikelyMisconfigured(): boolean {
 const app =
   isFirebaseConfigured && (getApps().length ? getApp() : initializeApp(firebaseConfig));
 
+function isLikelySafariOrIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent.toLowerCase();
+  const isIOS = /iphone|ipad|ipod/.test(ua);
+  const isSafari = ua.includes("safari") && !ua.includes("chrome") && !ua.includes("crios") && !ua.includes("android");
+  return isIOS || isSafari;
+}
+
 const shouldForceLongPolling =
-  // Opt-in via env for prod if needed, and default-on in dev to reduce flaky Firestore internal errors.
+  // Opt-in via env for prod if needed, and default-on in dev / iOS Safari to reduce flaky Firestore internal errors.
   process.env.NEXT_PUBLIC_FIREBASE_FORCE_LONG_POLLING === "true" ||
-  process.env.NODE_ENV === "development";
+  process.env.NODE_ENV === "development" ||
+  isLikelySafariOrIOS();
 
 // Keep these exports typed as non-null so Firebase helpers (doc/collection/etc) typecheck cleanly.
 // Guard runtime usage with `isFirebaseConfigured` in UI/components.
 export const auth = app ? getAuth(app) : (null as any);
 export const db = (() => {
   if (!app) return null as any;
-  if (!shouldForceLongPolling) return getFirestore(app);
-  // Long-polling is slower but tends to be more robust in dev / certain network environments.
-  // If Firestore is already initialized, fall back to the existing instance.
+  // Long-polling is slower but tends to be more robust in iOS/Safari and certain environments.
+  // Use auto-detect always; force only when we know it helps.
   try {
-    return initializeFirestore(app, { experimentalForceLongPolling: true });
+    return initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+      ...(shouldForceLongPolling ? { experimentalForceLongPolling: true } : {}),
+    } as any);
   } catch {
     return getFirestore(app);
   }
 })();
 export const storage = app ? getStorage(app) : (null as any);
 export const functions = app ? getFunctions(app) : (null as any);
+
