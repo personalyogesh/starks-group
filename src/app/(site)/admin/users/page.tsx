@@ -3,6 +3,7 @@
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { isFirebaseConfigured, db } from "@/lib/firebaseClient";
 import { UserDoc, setUserApproval, setUserRole, UserRole, UserStatus } from "@/lib/firestore";
+import { adminSetUserRole } from "@/lib/adminFunctions";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
@@ -35,7 +36,12 @@ export default function AdminUsersPage() {
 
   const setRole = async (uid: string, role: UserRole) => {
     if (!isFirebaseConfigured) return;
-    await setUserRole(uid, role);
+    // Keep Auth custom claims in sync when Functions are deployed; fallback to Firestore-only update.
+    try {
+      await adminSetUserRole(uid, role === "admin" ? "admin" : "member");
+    } catch {
+      await setUserRole(uid, role);
+    }
   };
 
   return (

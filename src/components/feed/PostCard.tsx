@@ -14,6 +14,7 @@ import {
   getUser,
   listenComments,
   PostDoc,
+  toggleSave,
   toggleLike,
   updatePost,
   UserDoc,
@@ -59,6 +60,8 @@ export default function PostCard({
   const [authorDoc, setAuthorDoc] = useState<UserDoc | null>(author ?? null);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [saved, setSaved] = useState(false);
+  const [saveCount, setSaveCount] = useState(0);
   const [comments, setComments] = useState<Array<{ id: string; data: CommentDoc }>>([]);
   const [commentAuthors, setCommentAuthors] = useState<Record<string, UserDoc | null>>({});
   const [commentText, setCommentText] = useState("");
@@ -116,6 +119,32 @@ export default function PostCard({
       (err) => {
         console.warn("[PostCard] likes count listener error", { postId, err });
         setLikeCount(0);
+      }
+    );
+  }, [postId]);
+
+  useEffect(() => {
+    if (!uid || !isFirebaseConfigured) return;
+    const ref = doc(db, "posts", postId, "saves", uid);
+    return onSnapshot(
+      ref,
+      (snap) => setSaved(snap.exists()),
+      (err) => {
+        console.warn("[PostCard] save listener error", { postId, uid, err });
+        setSaved(false);
+      }
+    );
+  }, [postId, uid]);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    const savesRef = collection(db, "posts", postId, "saves");
+    return onSnapshot(
+      savesRef,
+      (snap) => setSaveCount(snap.size),
+      (err) => {
+        console.warn("[PostCard] saves count listener error", { postId, err });
+        setSaveCount(0);
       }
     );
   }, [postId]);
@@ -323,8 +352,15 @@ export default function PostCard({
                 💬 Comment <span className="text-slate-400">({comments.length})</span>
               </button>
 
-              <button type="button" className="inline-flex items-center gap-2 hover:text-slate-900">
-                ↗ Share
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 hover:text-slate-900 disabled:opacity-50"
+                disabled={!canInteract}
+                onClick={() => canInteract && uid && toggleSave(postId, uid, !saved)}
+                title={saved ? "Remove bookmark" : "Save / bookmark"}
+              >
+                <span className={saved ? "text-slate-900" : "text-slate-500"}>{saved ? "🔖" : "📑"}</span>{" "}
+                Save <span className="text-slate-400">({saveCount})</span>
               </button>
             </div>
 

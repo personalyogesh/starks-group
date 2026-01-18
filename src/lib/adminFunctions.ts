@@ -19,3 +19,19 @@ export async function adminDeleteAuthUser(uid: string) {
   const fn = httpsCallable<{ uid: string }, { ok: true }>(functions, "adminDeleteAuthUser");
   await fn({ uid });
 }
+
+export async function adminBootstrapAdminClaim() {
+  if (!isFirebaseConfigured || !functions) {
+    throw new Error("Firebase Functions isn't configured.");
+  }
+  const fn = httpsCallable<{}, { ok: true }>(functions, "adminBootstrapAdminClaim");
+  await fn({});
+}
+
+export async function adminSetUserRole(uid: string, role: "admin" | "member") {
+  if (!isFirebaseConfigured || !functions) {
+    throw new Error("Firebase Functions isn't configured.");
+  }
+  const fn = httpsCallable<{ uid: string; role: "admin" | "member" }, { ok: true }>(functions, "adminSetUserRole");
+  await fn({ uid, role });
+}

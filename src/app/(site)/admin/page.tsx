@@ -30,7 +30,7 @@ import {
 } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ui/ToastProvider";
-import { adminDeleteAuthUser } from "@/lib/adminFunctions";
+import { adminBootstrapAdminClaim, adminDeleteAuthUser, adminSetUserRole } from "@/lib/adminFunctions";
 
 export default function AdminPage() {
   const { toast } = useToast();
@@ -472,7 +472,11 @@ export default function AdminPage() {
                                 onClick={async () => {
                                   if (!isFirebaseConfigured) return;
                                   setBusyUserId(id);
-                                  await setUserRole(id, "member");
+                                  try {
+                                    await adminSetUserRole(id, "member");
+                                  } catch {
+                                    await setUserRole(id, "member");
+                                  }
                                   await setUserJoinAs(id, "Player");
                                   toast({ kind: "success", title: "Role updated", description: "Set Member" });
                                   setBusyUserId(null);
@@ -487,7 +491,11 @@ export default function AdminPage() {
                                 onClick={async () => {
                                   if (!isFirebaseConfigured) return;
                                   setBusyUserId(id);
-                                  await setUserRole(id, "member");
+                                  try {
+                                    await adminSetUserRole(id, "member");
+                                  } catch {
+                                    await setUserRole(id, "member");
+                                  }
                                   await setUserJoinAs(id, "Volunteer");
                                   toast({ kind: "success", title: "Role updated", description: "Set Volunteer" });
                                   setBusyUserId(null);
@@ -502,7 +510,11 @@ export default function AdminPage() {
                                 onClick={async () => {
                                   if (!isFirebaseConfigured) return;
                                   setBusyUserId(id);
-                                  await setUserRole(id, "member");
+                                  try {
+                                    await adminSetUserRole(id, "member");
+                                  } catch {
+                                    await setUserRole(id, "member");
+                                  }
                                   await setUserJoinAs(id, "Coach");
                                   toast({ kind: "success", title: "Role updated", description: "Set Coach" });
                                   setBusyUserId(null);
@@ -518,7 +530,11 @@ export default function AdminPage() {
                                   if (!isFirebaseConfigured) return;
                                   setBusyUserId(id);
                                   try {
-                                    await setUserRole(id, "admin");
+                                    try {
+                                      await adminSetUserRole(id, "admin");
+                                    } catch {
+                                      await setUserRole(id, "admin");
+                                    }
                                     toast({ kind: "success", title: "Role updated", description: "Set Admin" });
                                   } catch (e: any) {
                                     toast({ kind: "error", title: "Role update failed", description: e?.message });
@@ -529,6 +545,36 @@ export default function AdminPage() {
                                 disabled={!isFirebaseConfigured || busyUserId === id}
                               >
                                 Set Admin
+                              </button>
+                              <div className="h-px bg-slate-100 my-1" />
+                              <button
+                                type="button"
+                                className="w-full text-left rounded-xl px-3 py-2 hover:bg-slate-50"
+                                onClick={async () => {
+                                  if (!isFirebaseConfigured) return;
+                                  setBusyUserId(id);
+                                  try {
+                                    await adminBootstrapAdminClaim();
+                                    toast({
+                                      kind: "success",
+                                      title: "Admin claim set",
+                                      description: "Sign out and sign back in (or hard refresh) to update your token.",
+                                    });
+                                  } catch (e: any) {
+                                    toast({
+                                      kind: "error",
+                                      title: "Bootstrap failed",
+                                      description:
+                                        e?.message ??
+                                        "Not allowed. Add your email to BOOTSTRAP_ADMIN_EMAILS on Functions and redeploy.",
+                                    });
+                                  } finally {
+                                    setBusyUserId(null);
+                                  }
+                                }}
+                                disabled={!isFirebaseConfigured || busyUserId === id}
+                              >
+                                Fix Admin Upload Access (set admin claim)
                               </button>
                               <div className="h-px bg-slate-100 my-1" />
                               <button

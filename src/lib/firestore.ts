@@ -2,6 +2,8 @@
 
 import {
   addDoc,
+  arrayRemove,
+  arrayUnion,
   collection,
   collectionGroup,
   deleteDoc,
@@ -29,16 +31,30 @@ export type UserDoc = {
   firstName?: string;
   lastName?: string;
   email: string;
+  countryCode?: string;
+  phoneNumber?: string; // 10-digit national number (digits only)
+  fullPhoneNumber?: string; // countryCode + phoneNumber
   phone?: string;
   avatarUrl?: string;
+  avatarStoragePath?: string;
   bio?: string;
   location?: string;
+  sportsInterests?: string[];
+  goals?: string;
   lastLoginAt?: any;
+  updatedAt?: any;
   suspended?: boolean;
   sportInterest?: string;
   joinAs?: string;
   agreedToTerms?: boolean;
   wantsUpdates?: boolean;
+  stats?: {
+    posts: number;
+    connections: number;
+    events: number;
+    likes: number;
+  };
+  events?: string[];
   status: UserStatus;
   role: UserRole;
   requestedAt: any;
@@ -47,6 +63,13 @@ export type UserDoc = {
 export type EventDoc = {
   title: string;
   dateTime: string;
+  // Prompt-aligned optional fields
+  bannerImage?: string;
+  category?: "tournament" | "training" | "social" | "workshop";
+  maxParticipants?: number | null;
+  registeredUsers?: string[];
+  registrationCount?: number;
+  status?: "upcoming" | "ongoing" | "completed" | "cancelled";
   location: string;
   description?: string;
   createdAt: any;
@@ -68,10 +91,20 @@ export type LinkDoc = {
 
 export type PostDoc = {
   title: string;
-  body: string;
+  body: string; // legacy + current feed rendering
+  content?: string; // prompt field (alias of body)
   imageUrl?: string;
+  privacy?: "public" | "members" | "friends";
+  authorId?: string;
+  authorName?: string;
+  authorAvatar?: string;
+  authorRole?: string;
+  likes?: number;
+  likedBy?: string[];
+  comments?: unknown[];
   commentCount?: number;
   createdAt: any;
+  updatedAt?: any;
   createdBy: string;
 };
 
@@ -189,6 +222,36 @@ export async function clearRsvp(eventId: string, uid: string) {
   await deleteDoc(doc(db, "events", eventId, "rsvps", uid));
 }
 
+export async function registerForEventOptIn(eventId: string, uid: string) {
+  // Maintain our existing RSVP doc as the source-of-truth for registration.
+  // Also update prompt-style fields on the event doc and user doc for easy UI rendering.
+  await Promise.all([
+    setRsvp(eventId, uid, "going"),
+    updateDoc(doc(db, "events", eventId), {
+      registeredUsers: arrayUnion(uid),
+      registrationCount: increment(1),
+    }),
+    updateDoc(doc(db, "users", uid), {
+      events: arrayUnion(eventId),
+      ["stats.events"]: increment(1),
+    } as any),
+  ]);
+}
+
+export async function unregisterFromEventOptIn(eventId: string, uid: string) {
+  await Promise.all([
+    clearRsvp(eventId, uid),
+    updateDoc(doc(db, "events", eventId), {
+      registeredUsers: arrayRemove(uid),
+      registrationCount: increment(-1),
+    }),
+    updateDoc(doc(db, "users", uid), {
+      events: arrayRemove(eventId),
+      ["stats.events"]: increment(-1),
+    } as any),
+  ]);
+}
+
 export async function createLink(
   uid: string,
   data: Omit<LinkDoc, "createdAt" | "createdBy">
@@ -211,8 +274,31 @@ export async function createPost(
   await addDoc(collection(db, "posts"), {
     ...data,
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
     createdBy: uid,
   });
+}
+
+export function newPostId() {
+  return doc(collection(db, "posts")).id;
+}
+
+export async function createPostWithId(
+  uid: string,
+  postId: string,
+  data: Omit<PostDoc, "createdAt" | "createdBy">
+) {
+  await setDoc(doc(db, "posts", postId), {
+    postId,
+    ...data,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    createdBy: uid,
+  });
+}
+
+export async function incrementUserPosts(uid: string) {
+  await updateDoc(doc(db, "users", uid), { ["stats.posts"]: increment(1) } as any);
 }
 
 export async function createVideo(
@@ -382,7 +468,7 @@ export async function deleteComment(postId: string, commentId: string) {
 }
 
 export async function updateUserProfile(uid: string, patch: Partial<UserDoc>) {
-  await updateDoc(doc(db, "users", uid), patch);
+  await updateDoc(doc(db, "users", uid), { ...patch, updatedAt: serverTimestamp() });
 }
 
 export async function touchLastLogin(uid: string) {
@@ -429,6 +515,15 @@ export async function toggleLike(
     await setDoc(likeRef, { createdAt: serverTimestamp() });
   } else {
     await deleteDoc(likeRef);
+  }
+}
+
+export async function toggleSave(postId: string, uid: string, shouldSave: boolean) {
+  const saveRef = doc(db, "posts", postId, "saves", uid);
+  if (shouldSave) {
+    await setDoc(saveRef, { createdAt: serverTimestamp() });
+  } else {
+    await deleteDoc(saveRef);
   }
 }
 

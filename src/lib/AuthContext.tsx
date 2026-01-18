@@ -10,8 +10,9 @@ import {
   updateProfile as fbUpdateProfile,
   User,
 } from "firebase/auth";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-import { auth, isFirebaseConfigured } from "@/lib/firebaseClient";
+import { auth, isFirebaseConfigured, storage, getFirebaseStorageBucketTroubleshootingMessage } from "@/lib/firebaseClient";
 import { ensureUserDoc, getUser, touchLastLogin, updateUserProfile, UserDoc } from "@/lib/firestore";
 
 export type CurrentUser = {
@@ -31,6 +32,10 @@ type AuthCtx = {
     lastName?: string;
     sportInterest?: string;
     joinAs?: string;
+    countryCode?: string;
+    phoneNumber?: string;
+    bio?: string;
+    avatarFile?: File | null;
     agreedToTerms?: boolean;
     wantsUpdates?: boolean;
   }) => Promise<void>;
@@ -117,6 +122,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     lastName,
     sportInterest,
     joinAs,
+    countryCode,
+    phoneNumber,
+    bio,
+    avatarFile,
     agreedToTerms,
     wantsUpdates,
   }) => {
@@ -124,24 +133,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Firebase isn’t configured.");
     }
 
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const normalizedEmail = email.trim().toLowerCase();
+    const cred = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
 
     const fullName = `${firstName?.trim() ?? ""} ${lastName?.trim() ?? ""}`.trim();
     if (fullName) {
       await fbUpdateProfile(cred.user, { displayName: fullName });
     }
 
+    // Optional avatar upload (after Auth user is created so we have uid)
+    let avatarUrl: string | undefined;
+    if (avatarFile) {
+      const hint = getFirebaseStorageBucketTroubleshootingMessage();
+      if (hint) throw new Error(hint);
+      const storageRef = ref(storage, `profiles/${cred.user.uid}/avatar.jpg`);
+      await uploadBytes(storageRef, avatarFile, { contentType: avatarFile.type || "image/jpeg" });
+      avatarUrl = await getDownloadURL(storageRef);
+    }
+
+    const cc = countryCode?.trim() || undefined;
+    const pn = phoneNumber?.replace(/\D/g, "").trim() || undefined;
+    const fullPhoneNumber = cc && pn ? `${cc}${pn}` : undefined;
+
     await ensureUserDoc(cred.user.uid, {
-      name: fullName || email,
+      name: fullName || normalizedEmail,
       firstName: firstName?.trim() || undefined,
       lastName: lastName?.trim() || undefined,
-      email,
+      email: normalizedEmail,
       sportInterest,
       joinAs,
+      countryCode: cc,
+      phoneNumber: pn,
+      fullPhoneNumber,
+      phone: fullPhoneNumber,
+      bio: bio?.trim() || undefined,
+      ...(avatarUrl ? { avatarUrl } : {}),
       agreedToTerms,
       wantsUpdates,
       status: "pending",
       role: "member",
+      stats: { posts: 0, connections: 0, events: 0, likes: 0 },
     });
   };
 
