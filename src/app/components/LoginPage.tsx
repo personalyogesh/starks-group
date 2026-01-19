@@ -19,6 +19,7 @@ import logo from "@/assets/starks-logo.jpg";
 import { auth, isFirebaseConfigured } from "@/lib/firebaseClient";
 import { useAuth } from "@/lib/AuthContext";
 import { getUser } from "@/lib/firestore";
+import { useHydrated } from "@/lib/useHydrated";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { LoginSchema, loginSchema } from "@/lib/validation";
@@ -38,15 +39,30 @@ function mapAuthError(err: any): string {
 export default function LoginPage() {
   const router = useRouter();
   const { currentUser, loading, logout, loginWithGoogle } = useAuth();
+  const hydrated = useHydrated();
 
   const [submitting, setSubmitting] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [msg, setMsg] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [lockUntilMs, setLockUntilMs] = useState<number>(0);
   const [failCount, setFailCount] = useState<number>(0);
+  const [nowMs, setNowMs] = useState<number>(0);
 
-  const locked = lockUntilMs > Date.now();
-  const lockSecondsLeft = locked ? Math.ceil((lockUntilMs - Date.now()) / 1000) : 0;
+  // Avoid hydration mismatch: Date.now() differs between server render and client hydration.
+  useEffect(() => {
+    if (!hydrated) return;
+    setNowMs(Date.now());
+  }, [hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!lockUntilMs) return;
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [hydrated, lockUntilMs]);
+
+  const locked = hydrated ? lockUntilMs > nowMs : false;
+  const lockSecondsLeft = locked ? Math.ceil((lockUntilMs - nowMs) / 1000) : 0;
 
   // Auto-redirect if already signed in
   useEffect(() => {
