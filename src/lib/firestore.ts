@@ -137,6 +137,24 @@ export type CarouselSlideDoc = {
   createdBy: string;
 };
 
+function stripUndefined<T>(value: T): T {
+  if (value === undefined) return null as any;
+  if (value === null) return value;
+  if (Array.isArray(value)) {
+    // Remove undefined entries (Firestore rejects them)
+    return value.filter((v) => v !== undefined).map((v) => stripUndefined(v)) as any;
+  }
+  if (typeof value === "object") {
+    const out: any = {};
+    for (const [k, v] of Object.entries(value as any)) {
+      if (v === undefined) continue;
+      out[k] = stripUndefined(v);
+    }
+    return out;
+  }
+  return value;
+}
+
 export function listenCollection<T>(
   path: string,
   cb: (docs: Array<{ id: string; data: T }>) => void,
@@ -203,7 +221,7 @@ export async function deleteEvent(eventId: string) {
 }
 
 export async function updateEvent(eventId: string, patch: Partial<EventDoc>) {
-  await updateDoc(doc(db, "events", eventId), patch);
+  await updateDoc(doc(db, "events", eventId), stripUndefined(patch));
 }
 
 export function listenEventRsvps(
@@ -291,13 +309,13 @@ export async function createPostWithId(
   postId: string,
   data: Omit<PostDoc, "createdAt" | "createdBy">
 ) {
-  await setDoc(doc(db, "posts", postId), {
+  await setDoc(doc(db, "posts", postId), stripUndefined({
     postId,
     ...data,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     createdBy: uid,
-  });
+  }));
 }
 
 export async function incrementUserPosts(uid: string) {
@@ -331,7 +349,7 @@ export async function deleteCarouselSlide(slideId: string) {
 }
 
 export async function updateCarouselSlide(slideId: string, patch: Partial<CarouselSlideDoc>) {
-  await updateDoc(doc(db, "carouselSlides", slideId), patch);
+  await updateDoc(doc(db, "carouselSlides", slideId), stripUndefined(patch));
 }
 
 export function listenPostsByUser(
@@ -389,7 +407,7 @@ export async function deletePost(postId: string) {
 }
 
 export async function updatePost(postId: string, patch: Partial<PostDoc>) {
-  await updateDoc(doc(db, "posts", postId), patch);
+  await updateDoc(doc(db, "posts", postId), stripUndefined(patch));
 }
 
 export function listenComments(
@@ -497,7 +515,7 @@ export async function deleteComment(postId: string, commentId: string) {
 }
 
 export async function updateUserProfile(uid: string, patch: Partial<UserDoc>) {
-  await updateDoc(doc(db, "users", uid), { ...patch, updatedAt: serverTimestamp() });
+  await updateDoc(doc(db, "users", uid), stripUndefined({ ...patch, updatedAt: serverTimestamp() }));
 }
 
 export async function touchLastLogin(uid: string) {

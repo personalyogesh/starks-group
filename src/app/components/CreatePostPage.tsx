@@ -131,7 +131,7 @@ export default function CreatePostPage() {
         // Prompt fields
         authorId: user.uid,
         authorName,
-        authorAvatar: userDoc?.avatarUrl ?? undefined,
+        ...(userDoc?.avatarUrl ? { authorAvatar: userDoc.avatarUrl } : {}),
         authorRole,
         content: text,
         privacy,
