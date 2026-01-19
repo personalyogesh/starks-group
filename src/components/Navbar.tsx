@@ -16,7 +16,7 @@ export default function Navbar() {
   const isLoggedIn = Boolean(user);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur dark:bg-slate-950/80 dark:border-slate-800">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white dark:bg-slate-950 dark:border-slate-800">
       <Container>
         <div className="py-4 flex items-center justify-between gap-4 relative">
           {/* Left: brand */}

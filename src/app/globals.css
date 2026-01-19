@@ -25,6 +25,19 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Dark-mode readability fallbacks for legacy light-mode utility classes. */
+.dark .text-slate-950 { color: rgb(248 250 252) !important; }
+.dark .text-slate-900 { color: rgb(241 245 249) !important; }
+.dark .text-slate-800 { color: rgb(226 232 240) !important; }
+.dark .text-slate-700 { color: rgb(226 232 240) !important; }
+.dark .text-slate-600 { color: rgb(203 213 225) !important; }
+.dark .text-slate-500 { color: rgb(148 163 184) !important; }
+
+.dark .bg-white { background-color: rgb(15 23 42) !important; }
+.dark .bg-slate-50 { background-color: rgb(2 6 23) !important; }
+.dark .border-slate-200 { border-color: rgb(51 65 85) !important; }
+.dark .border-slate-100 { border-color: rgb(30 41 59) !important; }
+
 /* Make Tailwind typography feel more "sports club" than default system text */
 html {
   text-rendering: geometricPrecision;
