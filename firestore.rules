@@ -6,7 +6,11 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return signedIn() && request.auth.token.admin == true;
+      // Accept either custom claim (preferred) or Firestore role (bootstrap / back-compat).
+      return signedIn() && (
+        request.auth.token.admin == true
+        || me().role == "admin"
+      );
     }
 
     function me() {
@@ -99,11 +103,11 @@ service cloud.firestore {
     match /posts/{postId} {
       allow read: if canReadPostData(resource.data);
 
-      allow create: if isApproved()
+      allow create: if (isApproved() || isAdmin())
         && request.resource.data.createdBy == request.auth.uid;
 
       // Owner edits (content) vs non-owner edits (comment count updates).
-      allow update: if isApproved() && (
+      allow update: if isAdmin() || (isApproved() && (
         (
           request.auth.uid == resource.data.createdBy
           && changedKeys().hasOnly([
@@ -121,26 +125,26 @@ service cloud.firestore {
           request.auth.uid != resource.data.createdBy
           && changedKeys().hasOnly(["commentCount", "updatedAt"])
         )
-      );
+      ));
 
       allow delete: if isAdmin() || (isApproved() && request.auth.uid == resource.data.createdBy);
 
       // Likes (subcollection model)
       match /likes/{uid} {
         allow read: if canReadPost(postId);
-        allow create, delete: if isApproved() && request.auth.uid == uid;
+        allow create, delete: if (isApproved() || isAdmin()) && request.auth.uid == uid;
       }
 
       // Saves (subcollection model)
       match /saves/{uid} {
         allow read: if signedIn() && request.auth.uid == uid;
-        allow create, delete: if isApproved() && request.auth.uid == uid;
+        allow create, delete: if (isApproved() || isAdmin()) && request.auth.uid == uid;
       }
 
       // Legacy comments subcollection (we dual-write for back-compat).
       match /comments/{commentId} {
         allow read: if canReadPost(postId);
-        allow create: if isApproved()
+        allow create: if (isApproved() || isAdmin())
           && request.resource.data.createdBy == request.auth.uid;
         allow delete: if isAdmin() || (isApproved() && resource.data.createdBy == request.auth.uid);
       }
@@ -149,7 +153,7 @@ service cloud.firestore {
     // Prompt-aligned top-level comments
     match /comments/{commentId} {
       allow read: if canReadPost(resource.data.postId);
-      allow create: if isApproved()
+      allow create: if (isApproved() || isAdmin())
         && request.resource.data.createdBy == request.auth.uid
         && canReadPost(request.resource.data.postId);
       allow delete: if isAdmin() || (isApproved() && resource.data.createdBy == request.auth.uid);
