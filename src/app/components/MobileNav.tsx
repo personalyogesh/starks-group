@@ -16,6 +16,7 @@ import {
 
 import Button from "@/components/ui/Button";
 import { useAuth } from "@/lib/AuthContext";
+import { ThemeToggle } from "@/app/components/ThemeToggle";
 
 type NavItem = {
   label: string;
@@ -101,27 +102,27 @@ export function MobileNav({
       {/* Hamburger trigger (place in header) */}
       <button
         type="button"
-        className="md:hidden relative h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition grid place-items-center"
+        className="md:hidden relative h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition grid place-items-center dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
         aria-label="Open menu"
         onClick={() => setDrawerOpen(true)}
       >
-        <Menu className="size-6 text-slate-800" />
+        <Menu className="size-6 text-slate-800 dark:text-slate-100" />
       </button>
 
       {/* Drawer */}
       {drawerOpen && (
         <div className="fixed inset-0 z-[300] md:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
-          <div className="absolute left-0 top-0 bottom-0 w-[85vw] max-w-sm bg-white shadow-xl border-r border-slate-200 p-4 flex flex-col">
+          <div className="absolute left-0 top-0 bottom-0 w-[85vw] max-w-sm bg-white shadow-xl border-r border-slate-200 p-4 flex flex-col dark:bg-slate-950 dark:border-slate-800">
             <div className="flex items-center justify-between">
-              <div className="font-extrabold text-slate-950">Menu</div>
+              <div className="font-extrabold text-slate-950 dark:text-slate-100">Menu</div>
               <button
                 type="button"
                 aria-label="Close menu"
-                className="h-10 w-10 rounded-2xl hover:bg-slate-50 border border-slate-200 grid place-items-center"
+                className="h-10 w-10 rounded-2xl hover:bg-slate-50 border border-slate-200 grid place-items-center dark:border-slate-700 dark:hover:bg-slate-800"
                 onClick={() => setDrawerOpen(false)}
               >
-                <X className="size-5 text-slate-700" />
+                <X className="size-5 text-slate-700 dark:text-slate-200" />
               </button>
             </div>
 
@@ -134,11 +135,15 @@ export function MobileNav({
                   className={[
                     "rounded-2xl px-3 py-3 transition flex items-center gap-3 font-semibold",
                     isActivePath(pathname, item.href)
-                      ? "bg-slate-950 text-white"
-                      : "hover:bg-slate-50 text-slate-800",
+                      ? "bg-slate-950 text-white dark:bg-slate-100 dark:text-slate-900"
+                      : "hover:bg-slate-50 text-slate-800 dark:hover:bg-slate-800 dark:text-slate-100",
                   ].join(" ")}
                 >
-                  <span className={isActivePath(pathname, item.href) ? "text-white" : "text-slate-700"}>
+                  <span
+                    className={
+                      isActivePath(pathname, item.href) ? "text-white dark:text-slate-900" : "text-slate-700 dark:text-slate-200"
+                    }
+                  >
                     {item.icon}
                   </span>
                   <span>{item.label}</span>
@@ -146,7 +151,11 @@ export function MobileNav({
               ))}
             </div>
 
-            <div className="mt-auto pt-4 border-t border-slate-100">
+            <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Theme</div>
+                <ThemeToggle />
+              </div>
               {authed ? (
                 <Button
                   variant="outline"
@@ -180,7 +189,7 @@ export function MobileNav({
       {/* Bottom nav (authenticated only) */}
       {authed && (
         <nav
-          className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 z-[250]"
+          className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 z-[250] dark:bg-slate-950/80 dark:border-slate-800"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
           aria-label="Bottom navigation"
         >
@@ -194,7 +203,9 @@ export function MobileNav({
                   aria-label={item.label}
                   className={[
                     "h-12 w-12 rounded-2xl grid place-items-center transition",
-                    isActive ? "text-brand-primary bg-slate-50" : "text-slate-700 hover:bg-slate-50",
+                    isActive
+                      ? "text-brand-primary bg-slate-50 dark:bg-slate-800 dark:text-brand-gold"
+                      : "text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800",
                   ].join(" ")}
                 >
                   {item.icon}

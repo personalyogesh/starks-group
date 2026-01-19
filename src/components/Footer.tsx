@@ -37,18 +37,18 @@ export default function Footer() {
             <div className="space-y-3">
               <div className="font-bold">Quick Links</div>
               <div className="grid gap-2 text-white/70">
-                <a className="hover:text-white transition" href="#about">
+                <Link className="hover:text-white transition" href="/#about">
                   About Us
-                </a>
-                <a className="hover:text-white transition" href="#programs">
+                </Link>
+                <Link className="hover:text-white transition" href="/#programs">
                   Programs
-                </a>
-                <a className="hover:text-white transition" href="#partners">
+                </Link>
+                <Link className="hover:text-white transition" href="/partners">
                   Partners
-                </a>
-                <a className="hover:text-white transition" href="#community">
+                </Link>
+                <Link className="hover:text-white transition" href="/dashboard">
                   Community
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -59,15 +59,21 @@ export default function Footer() {
                 <Link className="hover:text-white transition" href="/register">
                   Volunteer
                 </Link>
-                <a className="hover:text-white transition" href="#donate">
+                <a
+                  className="hover:text-white transition"
+                  href="mailto:starksgroup@starksgrp.org?subject=Donation%20Inquiry"
+                >
                   Donate
                 </a>
-                <a className="hover:text-white transition" href="#partners">
+                <a
+                  className="hover:text-white transition"
+                  href="mailto:starksgroup@starksgrp.org?subject=Partnership%20Inquiry"
+                >
                   Partner With Us
                 </a>
-                <a className="hover:text-white transition" href="#events">
+                <Link className="hover:text-white transition" href="/events">
                   Events
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -80,14 +86,18 @@ export default function Footer() {
                   <span aria-hidden="true">📧</span>
                   <div>
                     <div className="font-semibold text-white">Email</div>
-                    <div className="text-white/70">starksgroup@starksgrp.org</div>
+                    <a className="text-white/70 hover:text-white transition" href="mailto:starksgroup@starksgrp.org">
+                      starksgroup@starksgrp.org
+                    </a>
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <span aria-hidden="true">📞</span>
                   <div>
                     <div className="font-semibold text-white">Phone</div>
-                    <div className="text-white/70">909-999-0153</div>
+                    <a className="text-white/70 hover:text-white transition" href="tel:+19099990153">
+                      909-999-0153
+                    </a>
                   </div>
                 </div>
                 <div className="flex gap-3">

@@ -132,6 +132,72 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* About */}
+      <section id="about" className="px-4 py-12">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <div>
+              <div className="inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">
+                About Starks Cricket
+              </div>
+              <h2 className="mt-4 text-3xl md:text-4xl font-extrabold tracking-tight text-slate-950">
+                A regional cricket club for the Triangle, NC — Estd. 2018
+              </h2>
+              <p className="mt-4 text-lg text-slate-600 leading-relaxed">
+                Starks Cricket is a community-first club based in the Triangle area of North Carolina. We bring together
+                professionals, students, and families who love the game — and we’re just as serious about{" "}
+                <span className="font-semibold text-slate-800">wellbeing</span> and{" "}
+                <span className="font-semibold text-slate-800">work–life balance</span> as we are about performance.
+              </p>
+              <p className="mt-4 text-slate-600 leading-relaxed">
+                Our mission is simple: create a welcoming environment where people can stay active, build friendships,
+                and grow through sport — whether you’re picking up a bat for the first time or competing regularly.
+              </p>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <div className="font-extrabold text-slate-950">What makes Starks different</div>
+                <div className="mt-1 text-sm text-slate-600">A few things members consistently highlight.</div>
+              </CardHeader>
+              <CardBody>
+                <ul className="grid gap-3 text-slate-700">
+                  <li>
+                    <span className="font-semibold text-slate-900">Balanced cricket culture</span> — competitive spirit,
+                    supportive vibes.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-slate-900">Community & connection</span> — meet people across the
+                    Triangle through shared practice and events.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-slate-900">Healthy routines</span> — training that fits real
+                    schedules and promotes long-term wellbeing.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-slate-900">Partnership-minded</span> — we collaborate with local
+                    organizations to create positive impact.
+                  </li>
+                </ul>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <a href="/register">
+                    <Button variant="dark" className="px-6 py-3 rounded-2xl">
+                      Join the Club
+                    </Button>
+                  </a>
+                  <a href="/partners">
+                    <Button variant="outline" className="px-6 py-3 rounded-2xl">
+                      Meet Our Partners
+                    </Button>
+                  </a>
+                </div>
+              </CardBody>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* Community Preview Section */}
       <section className="px-4 py-10">
         <div className="text-center mb-8">

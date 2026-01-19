@@ -11,6 +11,7 @@ import Button from "@/components/ui/Button";
 import { UserAccountMenu } from "@/app/components/UserAccountMenu";
 import { MobileNav } from "@/app/components/MobileNav";
 import { useToast } from "@/components/ui/ToastProvider";
+import { ThemeToggle } from "@/app/components/ThemeToggle";
 
 function initialsFromName(name?: string | null) {
   const n = (name ?? "").trim();
@@ -56,7 +57,7 @@ export default function DashboardHeader() {
   }, [currentUser]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur dark:bg-slate-950/80 dark:border-slate-800">
       <div className="max-w-6xl mx-auto px-4">
         <div className="h-[72px] flex items-center gap-4">
           {/* Brand */}
@@ -73,10 +74,10 @@ export default function DashboardHeader() {
               className="rounded-full ring-1 ring-slate-200"
             />
             <div className="leading-tight">
-              <div className="font-extrabold text-lg tracking-tight text-brand-deep">
+              <div className="font-extrabold text-lg tracking-tight text-brand-deep dark:text-slate-100">
                 Starks Cricket
               </div>
-              <div className="text-xs text-slate-500 font-semibold">Estd. 2018</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">Estd. 2018</div>
             </div>
           </Link>
 
@@ -88,8 +89,8 @@ export default function DashboardHeader() {
               className={[
                 "rounded-xl px-3 py-2 text-sm font-semibold transition",
                 isActiveTopNav(pathname, "/dashboard")
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-700 hover:bg-slate-100",
+                  ? "bg-slate-950 text-white dark:bg-slate-100 dark:text-slate-900"
+                  : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
               ].join(" ")}
             >
               Community
@@ -100,8 +101,8 @@ export default function DashboardHeader() {
               className={[
                 "rounded-xl px-3 py-2 text-sm font-semibold transition",
                 isActiveTopNav(pathname, "/partners")
-                  ? "bg-slate-950 text-white"
-                  : "text-slate-700 hover:bg-slate-100",
+                  ? "bg-slate-950 text-white dark:bg-slate-100 dark:text-slate-900"
+                  : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
               ].join(" ")}
             >
               Partners
@@ -138,7 +139,7 @@ export default function DashboardHeader() {
                     }
                   }}
                   placeholder="Search posts, members, events..."
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-400"
                 />
               </div>
             </div>
@@ -147,6 +148,9 @@ export default function DashboardHeader() {
           {/* Right actions */}
           <div className="ml-auto flex items-center gap-2">
             <MobileNav isAuthenticated={isAuthenticated} />
+            <div className="hidden sm:block">
+              <ThemeToggle />
+            </div>
 
             {isAuthenticated && (
               <>
