@@ -20,6 +20,7 @@ import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { useHydrated } from "@/lib/useHydrated";
 
 type SortMode = "upcoming" | "popular" | "recent";
 type Tab = "all" | "mine";
@@ -43,8 +44,10 @@ function parseDateTime(e: EventDoc): Date | null {
   return ms ? new Date(ms) : null;
 }
 
-function fmtDateTime(e: EventDoc) {
+function fmtDateTime(e: EventDoc, hydrated: boolean) {
   const d = parseDateTime(e);
+  // Avoid hydration mismatch: locale formatting can differ between server and client.
+  if (!hydrated) return e.dateTime || "—";
   if (!d) return e.dateTime || "—";
   return d.toLocaleString(undefined, {
     weekday: "short",
@@ -55,7 +58,9 @@ function fmtDateTime(e: EventDoc) {
   });
 }
 
-function isEnded(e: EventDoc) {
+function isEnded(e: EventDoc, hydrated: boolean) {
+  // Avoid hydration mismatch around time boundaries.
+  if (!hydrated) return false;
   const d = parseDateTime(e);
   return Boolean(d && d.getTime() < Date.now());
 }
@@ -69,11 +74,12 @@ function registrationCount(e: EventDoc) {
 export default function EventsPage() {
   const { toast } = useToast();
   const { currentUser, loading } = useAuth();
+  const hydrated = useHydrated();
 
   const user = currentUser?.authUser ?? null;
   const userDoc = currentUser?.userDoc ?? null;
   const uid = user?.uid ?? "";
-  const isApproved = userDoc?.status === "approved";
+  const isApproved = userDoc?.status === "approved" || userDoc?.status === "active";
 
   const [tab, setTab] = useState<Tab>("all");
   const [category, setCategory] = useState<Category>("");
@@ -158,8 +164,8 @@ export default function EventsPage() {
     return list;
   }, [events, category, search, tab, myEventIds, sort]);
 
-  const upcoming = useMemo(() => visible.filter((e) => !isEnded(e.data)), [visible]);
-  const past = useMemo(() => visible.filter((e) => isEnded(e.data)), [visible]);
+  const upcoming = useMemo(() => visible.filter((e) => !isEnded(e.data, hydrated)), [visible, hydrated]);
+  const past = useMemo(() => visible.filter((e) => isEnded(e.data, hydrated)), [visible, hydrated]);
 
   const canInteract = Boolean(isApproved && isFirebaseConfigured && uid);
 
@@ -265,6 +271,7 @@ export default function EventsPage() {
                 key={id}
                 id={id}
                 data={data}
+                hydrated={hydrated}
                 registered={myEventIds.has(id)}
                 canInteract={canInteract}
                 onRegister={() => openConfirm("register", id, data.title)}
@@ -286,6 +293,7 @@ export default function EventsPage() {
                 key={id}
                 id={id}
                 data={data}
+                hydrated={hydrated}
                 registered={myEventIds.has(id)}
                 canInteract={false}
                 onRegister={() => {}}
@@ -331,6 +339,7 @@ export default function EventsPage() {
 function EventCard({
   id,
   data,
+  hydrated,
   registered,
   canInteract,
   onRegister,
@@ -338,12 +347,13 @@ function EventCard({
 }: {
   id: string;
   data: EventDoc;
+  hydrated: boolean;
   registered: boolean;
   canInteract: boolean;
   onRegister: () => void;
   onUnregister: () => void;
 }) {
-  const ended = isEnded(data);
+  const ended = isEnded(data, hydrated);
   const count = registrationCount(data);
   const max = data.maxParticipants ?? null;
   const full = typeof max === "number" && max > 0 && count >= max;
@@ -395,7 +405,7 @@ function EventCard({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-lg font-extrabold text-slate-950">{data.title}</div>
-                <div className="mt-1 text-sm text-slate-600">{fmtDateTime(data)}</div>
+                <div className="mt-1 text-sm text-slate-600">{fmtDateTime(data, hydrated)}</div>
                 <div className="mt-1 text-sm text-slate-600">📍 {data.location}</div>
               </div>
               <div className="text-sm font-semibold text-slate-700">{count} registered</div>

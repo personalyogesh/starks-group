@@ -13,6 +13,7 @@ import {
   orderBy,
   query,
   startAfter,
+  where,
   QueryDocumentSnapshot,
   DocumentData,
 } from "firebase/firestore";
@@ -59,7 +60,7 @@ export default function UserDashboard() {
   const user = currentUser?.authUser ?? null;
   const userDoc = currentUser?.userDoc ?? null;
   const uid = user?.uid ?? null;
-  const isApproved = userDoc?.status === "approved";
+  const isApproved = userDoc?.status === "approved" || userDoc?.status === "active";
   const isAdmin = userDoc?.role === "admin";
 
   const PAGE_SIZE = 10;
@@ -74,6 +75,8 @@ export default function UserDashboard() {
   const [hasNewPosts, setHasNewPosts] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [postsError, setPostsError] = useState<string | null>(null);
+  const [postsDebug, setPostsDebug] = useState<{ mode: "all" | "public"; count: number; fromCache?: boolean } | null>(null);
   const appliedCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const olderCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
 
@@ -145,11 +148,25 @@ export default function UserDashboard() {
   // Feed: realtime for first page
   useEffect(() => {
     if (!isFirebaseConfigured) return;
-    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
+    setPostsError(null);
+    // IMPORTANT:
+    // - Firestore queries fail if any returned doc is unreadable.
+    // Strategy:
+    // - admin: query all posts (admins can read everything via rules)
+    // - approved member: query only readable privacy values (prevents a single unreadable doc from breaking the whole query)
+    // - public/pending: query only public-ish posts
+    const canReadAllFeed = Boolean(isApproved || isAdmin);
+    const mode: "all" | "public" = canReadAllFeed ? "all" : "public";
+    const q = canReadAllFeed
+      ? query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(PAGE_SIZE))
+      : query(collection(db, "posts"), where("privacy", "in", [null, "public"] as any), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
     return onSnapshot(
       q,
       (snap) => {
         const docs = snap.docs.map((d) => ({ id: d.id, data: d.data() as PostDoc }));
+        // Clear any previous error once we have a successful snapshot.
+        setPostsError(null);
+        setPostsDebug({ mode, count: docs.length, fromCache: snap.metadata.fromCache });
         setIncomingFirstPage(docs);
         appliedCursorRef.current = snap.docs[snap.docs.length - 1] ?? null;
         if (appliedFirstPage.length === 0) {
@@ -161,11 +178,13 @@ export default function UserDashboard() {
       },
       (err) => {
         console.warn("[UserDashboard] posts listener error", { err });
-        setIncomingFirstPage([]);
+        setPostsError(
+          String((err as any)?.code ? `[${(err as any).code}] ` : "") + String((err as any)?.message ?? "Failed to load posts.")
+        );
+        // Keep any previously loaded posts on screen; snapshot errors can occur transiently (cache vs server).
       }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isApproved, isAdmin, PAGE_SIZE, appliedFirstPage.length]);
 
   const combinedPosts = useMemo(() => {
     const seen = new Set(appliedFirstPage.map((p) => p.id));
@@ -173,14 +192,14 @@ export default function UserDashboard() {
   }, [appliedFirstPage, olderPosts]);
 
   const visiblePosts = useMemo(() => {
-    const approved = Boolean(isApproved);
+    const approved = Boolean(isApproved || isAdmin);
     return combinedPosts.filter(({ data }) => {
       const p = (data.privacy ?? "public") as string;
       if (!p || p === "public") return true;
       if (p === "members" || p === "friends") return approved;
       return true;
     });
-  }, [combinedPosts, isApproved]);
+  }, [combinedPosts, isApproved, isAdmin]);
 
   const filteredPosts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -240,12 +259,36 @@ export default function UserDashboard() {
     if (!cursor) return;
     setLoadingMore(true);
     try {
-      const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), startAfter(cursor), limit(PAGE_SIZE));
+      const canReadAllFeed = Boolean(isApproved || isAdmin);
+      const q = canReadAllFeed
+        ? query(collection(db, "posts"), orderBy("createdAt", "desc"), startAfter(cursor), limit(PAGE_SIZE))
+        : query(
+            collection(db, "posts"),
+            where("privacy", "in", [null, "public"] as any),
+            orderBy("createdAt", "desc"),
+            startAfter(cursor),
+            limit(PAGE_SIZE)
+          );
       const snap = await getDocs(q);
       const docs = snap.docs.map((d) => ({ id: d.id, data: d.data() as PostDoc }));
       olderCursorRef.current = snap.docs[snap.docs.length - 1] ?? olderCursorRef.current;
       setOlderPosts((prev) => [...prev, ...docs]);
       if (docs.length < PAGE_SIZE) setHasMore(false);
+    } catch (err: any) {
+      // If any returned document is unreadable, Firestore fails the whole query with permission-denied.
+      // Keep already-loaded posts visible and stop pagination to avoid an infinite error loop.
+      const code = String(err?.code ?? "");
+      if (code === "permission-denied") {
+        setHasMore(false);
+        toast({
+          kind: "error",
+          title: "Can’t load older posts",
+          description:
+            "Some older posts have restricted/legacy privacy settings that your current Firestore rules don’t allow. Deploy the latest Firestore rules or normalize old posts’ privacy fields.",
+        });
+        return;
+      }
+      throw err;
     } finally {
       setLoadingMore(false);
     }
@@ -262,9 +305,29 @@ export default function UserDashboard() {
 
   if (loading) return <LoadingSpinner message="Loading your dashboard..." />;
 
+  const hasAnyPosts = appliedFirstPage.length > 0 || incomingFirstPage.length > 0 || olderPosts.length > 0;
+
   return (
     <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen">
       <div className="max-w-6xl mx-auto px-4 py-8">
+        {!isFirebaseConfigured && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Firebase isn’t configured in this environment, so posts won’t load. Check your <code>.env.local</code> /
+            Vercel env vars.
+          </div>
+        )}
+
+        {postsError && !hasAnyPosts && (
+          <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+            <div className="font-semibold">Posts couldn’t load.</div>
+            <div className="mt-1">{postsError}</div>
+            <div className="mt-2 text-rose-900/80">
+              If you recently changed Firestore rules/indexes, deploy them with{" "}
+              <code className="font-mono">firebase deploy --only firestore</code>.
+            </div>
+          </div>
+        )}
+
         {!isApproved && (
           <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {currentUser
@@ -272,6 +335,20 @@ export default function UserDashboard() {
               : "You’re viewing the public community feed. Sign in to interact (like, comment, post, and register for events)."}
           </div>
         )}
+
+        {currentUser && (
+          <div className="mb-6 text-xs text-slate-500">
+            status: <b>{userDoc?.status ?? "missing"}</b> · role: <b>{userDoc?.role ?? "missing"}</b>
+          </div>
+        )}
+
+        <div className="mb-6 text-xs text-slate-500">
+          firebase: <b>{String(isFirebaseConfigured)}</b>
+          {" · "}
+          postsQuery: <b>{postsDebug?.mode ?? "n/a"}</b>
+          {" · "}
+          firstPageCount: <b>{postsDebug?.count ?? "n/a"}</b>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_300px] gap-6">
           {/* Left sidebar */}

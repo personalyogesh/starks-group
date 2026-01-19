@@ -4,10 +4,23 @@ import { RequireAdmin } from "@/components/RequireAdmin";
 import { useAuth } from "@/lib/AuthContext";
 import { listenCollection, createPost, deletePost, PostDoc } from "@/lib/firestore";
 import { useEffect, useState } from "react";
-import { isFirebaseConfigured } from "@/lib/firebaseClient";
+import { db, isFirebaseConfigured } from "@/lib/firebaseClient";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import {
+  QueryDocumentSnapshot,
+  DocumentData,
+  Query,
+  collection,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  serverTimestamp,
+  startAfter,
+  writeBatch,
+} from "firebase/firestore";
 
 export default function AdminPostsPage() {
   const { currentUser } = useAuth();
@@ -15,6 +28,9 @@ export default function AdminPostsPage() {
   const [posts, setPosts] = useState<Array<{ id: string; data: PostDoc }>>([]);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [fixing, setFixing] = useState(false);
+  const [fixMsg, setFixMsg] = useState<string | null>(null);
+  const [fixStats, setFixStats] = useState<{ scanned: number; updated: number } | null>(null);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -27,6 +43,79 @@ export default function AdminPostsPage() {
     await createPost(user.uid, { title, body });
     setTitle("");
     setBody("");
+  }
+
+  async function normalizePrivacy() {
+    if (!isFirebaseConfigured) return;
+    if (!user) return;
+    const ok = window.confirm(
+      "Normalize post privacy fields?\n\nThis will:\n- Trim + lowercase privacy values\n- Convert invalid/unknown values to 'members'\n\nThis helps prevent members from seeing 'Missing or insufficient permissions' when loading older posts."
+    );
+    if (!ok) return;
+
+    setFixing(true);
+    setFixMsg(null);
+    setFixStats({ scanned: 0, updated: 0 });
+
+    const allowed = new Set(["public", "members", "friends"]);
+    const PAGE = 400;
+    const MAX_PAGES = 25; // safety cap (10k docs max)
+
+    try {
+      let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const q1: Query<DocumentData> = cursor
+          ? query(collection(db, "posts"), orderBy("createdAt", "desc"), startAfter(cursor), limit(PAGE))
+          : query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(PAGE));
+        const snap = await getDocs(q1);
+        if (snap.empty) break;
+
+        const batch = writeBatch(db);
+        let updatesThisPage = 0;
+
+        for (const d of snap.docs) {
+          const data = d.data() as any;
+          const raw = data?.privacy;
+
+          // Leave missing privacy alone (back-compat: treated as public by UI/rules).
+          if (raw === undefined || raw === null) continue;
+
+          let next: string | null = null;
+          if (typeof raw === "string") {
+            const norm = raw.trim().toLowerCase();
+            if (!norm) next = "public";
+            else if (allowed.has(norm)) next = norm;
+            else next = "members";
+
+            if (norm === raw && next === raw) continue;
+          } else {
+            // Unexpected type -> members
+            next = "members";
+          }
+
+          if (next) {
+            batch.update(d.ref, { privacy: next, updatedAt: serverTimestamp() });
+            updatesThisPage++;
+          }
+        }
+
+        // Always advance cursor; commit only if needed.
+        cursor = snap.docs[snap.docs.length - 1] ?? cursor;
+        setFixStats((prev) => ({
+          scanned: (prev?.scanned ?? 0) + snap.size,
+          updated: (prev?.updated ?? 0) + updatesThisPage,
+        }));
+
+        if (updatesThisPage > 0) await batch.commit();
+        if (snap.size < PAGE) break;
+      }
+
+      setFixMsg("Done. Privacy fields normalized.");
+    } catch (err: any) {
+      setFixMsg(err?.message ?? "Failed to normalize privacy.");
+    } finally {
+      setFixing(false);
+    }
   }
 
   return (
@@ -43,6 +132,32 @@ export default function AdminPostsPage() {
             <code>.env.local</code>.
           </div>
         )}
+
+        <Card>
+          <CardHeader>
+            <div className="font-bold">Maintenance</div>
+            <div className="text-sm text-slate-600 mt-1">
+              Fix legacy/invalid post privacy values to prevent members seeing permission errors when loading older posts.
+            </div>
+          </CardHeader>
+          <CardBody>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="text-sm text-slate-700">
+                {fixStats ? (
+                  <div>
+                    scanned: <b>{fixStats.scanned}</b> · updated: <b>{fixStats.updated}</b>
+                  </div>
+                ) : (
+                  <div>Normalize privacy values to one of: public / members / friends.</div>
+                )}
+                {fixMsg && <div className="mt-1 text-slate-600">{fixMsg}</div>}
+              </div>
+              <Button disabled={!isFirebaseConfigured || fixing} onClick={normalizePrivacy} variant="outline">
+                {fixing ? "Fixing…" : "Fix privacy fields"}
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -98,6 +213,9 @@ export default function AdminPostsPage() {
                   >
                     <div>
                       <div className="font-semibold">{data.title}</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        privacy: <b>{(data as any).privacy ?? "—"}</b>
+                      </div>
                       <p className="text-sm text-slate-700 mt-2 whitespace-pre-wrap">{data.body}</p>
                     </div>
                     <Button

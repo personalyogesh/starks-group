@@ -23,6 +23,7 @@ import Input from "@/components/ui/Input";
 import Card, { CardBody } from "@/components/ui/Card";
 import { AuthModal, AuthModalTrigger } from "@/app/components/AuthModal";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useHydrated } from "@/lib/useHydrated";
 
 function tsToDate(ts: any): Date | null {
   if (!ts) return null;
@@ -59,6 +60,7 @@ export default function PostCard({
   isAdmin?: boolean;
 }) {
   const { toast } = useToast();
+  const hydrated = useHydrated();
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -266,7 +268,7 @@ export default function PostCard({
                 >
                   {displayName}
                 </Link>
-                <div className="text-sm text-slate-500">{timeAgo(created)}</div>
+                <div className="text-sm text-slate-500">{hydrated ? timeAgo(created) : ""}</div>
               </div>
               {canManage ? (
                 <div className="flex items-center gap-2">
@@ -395,7 +397,7 @@ export default function PostCard({
                   <div className="grid gap-3">
                     {rootComments.map(({ id, data }) => {
                       const aName = data.authorName ?? "Member";
-                      const when = timeAgo(tsToDate(data.createdAt));
+                      const when = hydrated ? timeAgo(tsToDate(data.createdAt)) : "";
                       const initials =
                         (aName ?? "M")
                           .split(/\s+/)
@@ -468,7 +470,7 @@ export default function PostCard({
                             <div className="ml-10 grid gap-2">
                               {replies.map(({ id: rid, data: rdata }) => {
                                 const rName = rdata.authorName ?? "Member";
-                                const rwhen = timeAgo(tsToDate(rdata.createdAt));
+                                const rwhen = hydrated ? timeAgo(tsToDate(rdata.createdAt)) : "";
                                 const rinitials =
                                   (rName ?? "M")
                                     .split(/\s+/)

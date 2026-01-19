@@ -23,7 +23,8 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebaseClient";
 
-export type UserStatus = "pending" | "approved" | "rejected";
+// Back-compat: some older user docs used "active"/"inactive" instead of "approved"/"rejected".
+export type UserStatus = "pending" | "approved" | "active" | "rejected" | "inactive";
 export type UserRole = "member" | "admin";
 
 export type UserDoc = {
@@ -412,13 +413,14 @@ export async function updatePost(postId: string, patch: Partial<PostDoc>) {
 
 export function listenComments(
   postId: string,
-  cb: (docs: Array<{ id: string; data: CommentDoc }>) => void
+  cb: (docs: Array<{ id: string; data: CommentDoc }>) => void,
+  opts?: { onError?: (err: unknown) => void }
 ) {
   // Prompt-aligned source: top-level `comments` where postId ==.
+  // NOTE: Avoid `where(postId==)+orderBy(createdAt)` because it requires a composite index.
   const topQ = query(
     collection(db, "comments"),
     where("postId", "==", postId),
-    orderBy("createdAt", "desc"),
     fbLimit(200)
   );
 
@@ -434,21 +436,56 @@ export function listenComments(
     sub: Array<{ id: string; data: CommentDoc }>;
   } = { top: [], sub: [] };
 
+  const tsToMillis = (ts: any): number => {
+    if (!ts) return 0;
+    if (typeof ts?.toMillis === "function") return ts.toMillis();
+    if (typeof ts?.toDate === "function") return ts.toDate().getTime();
+    const d = new Date(ts);
+    const ms = d.getTime();
+    return Number.isNaN(ms) ? 0 : ms;
+  };
+
   const emit = () => {
     const map = new Map<string, CommentDoc>();
     for (const c of state.sub) map.set(c.id, { ...c.data, _source: "sub" });
     for (const c of state.top) map.set(c.id, { ...c.data, _source: "top" });
-    cb(Array.from(map.entries()).map(([id, data]) => ({ id, data })));
+    const rows = Array.from(map.entries()).map(([id, data]) => ({ id, data }));
+    // Keep newest-first ordering without requiring Firestore composite indexes.
+    rows.sort((a, b) => {
+      const am = tsToMillis(a.data.createdAt);
+      const bm = tsToMillis(b.data.createdAt);
+      if (bm !== am) return bm - am;
+      return b.id.localeCompare(a.id);
+    });
+    cb(rows);
   };
 
-  const unsubTop = onSnapshot(topQ, (snap) => {
-    state.top = snap.docs.map((d) => ({ id: d.id, data: d.data() as CommentDoc }));
-    emit();
-  });
-  const unsubSub = onSnapshot(subQ, (snap) => {
-    state.sub = snap.docs.map((d) => ({ id: d.id, data: d.data() as CommentDoc }));
-    emit();
-  });
+  const unsubTop = onSnapshot(
+    topQ,
+    (snap) => {
+      state.top = snap.docs.map((d) => ({ id: d.id, data: d.data() as CommentDoc }));
+      emit();
+    },
+    (err) => {
+      opts?.onError?.(err);
+      console.warn("[listenComments] top-level snapshot error", { postId, err });
+      state.top = [];
+      emit();
+    }
+  );
+  const unsubSub = onSnapshot(
+    subQ,
+    (snap) => {
+      state.sub = snap.docs.map((d) => ({ id: d.id, data: d.data() as CommentDoc }));
+      emit();
+    },
+    (err) => {
+      opts?.onError?.(err);
+      console.warn("[listenComments] subcollection snapshot error", { postId, err });
+      state.sub = [];
+      emit();
+    }
+  );
 
   return () => {
     unsubTop();

@@ -11,6 +11,7 @@ import {
 type ThemeCtx = {
   mode: ThemeMode;
   resolved: "light" | "dark";
+  hydrated: boolean;
   setMode: (mode: ThemeMode) => void;
   toggle: () => void;
 };
@@ -19,6 +20,12 @@ const Ctx = createContext<ThemeCtx | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>("system");
+  const [hydrated, setHydrated] = useState(false);
+
+  // Mark as mounted (avoid SSR/client hydration mismatches for theme-dependent UI)
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   // Load from localStorage
   useEffect(() => {
@@ -62,7 +69,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setMode(resolved === "dark" ? "light" : "dark");
   };
 
-  const value = useMemo<ThemeCtx>(() => ({ mode, resolved, setMode, toggle }), [mode, resolved]);
+  const value = useMemo<ThemeCtx>(
+    () => ({ mode, resolved, hydrated, setMode, toggle }),
+    [mode, resolved, hydrated]
+  );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

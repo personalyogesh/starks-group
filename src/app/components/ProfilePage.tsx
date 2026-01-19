@@ -104,7 +104,7 @@ export default function ProfilePage() {
   const user = currentUser?.authUser ?? null;
   const userDoc = currentUser?.userDoc ?? null;
   const uid = user?.uid ?? "";
-  const isApproved = userDoc?.status === "approved";
+  const isApproved = userDoc?.status === "approved" || userDoc?.status === "active";
   const isAdmin = userDoc?.role === "admin";
 
   const [tab, setTab] = useState<Tab>("posts");
@@ -125,6 +125,7 @@ export default function ProfilePage() {
   // listeners (posts + events)
   useEffect(() => {
     if (!isFirebaseConfigured || !uid) return;
+    setPermError(null);
     if (!isApproved) {
       setMyPosts([]);
       return;
@@ -142,6 +143,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!isFirebaseConfigured || !uid) return;
+    setPermError(null);
     if (!isApproved) {
       setRsvpEventIds([]);
       return;
