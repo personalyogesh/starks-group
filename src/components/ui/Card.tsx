@@ -10,7 +10,10 @@ export default function Card({
   return (
     <div
       {...props}
-      className={cn("rounded-2xl border border-slate-200 bg-white shadow-sm", className)}
+      className={cn(
+        "rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/60",
+        className
+      )}
     >
       {children}
     </div>
@@ -18,7 +21,7 @@ export default function Card({
 }
 
 export function CardHeader({ children }: { children: React.ReactNode }) {
-  return <div className="p-5 border-b border-slate-100">{children}</div>;
+  return <div className="p-5 border-b border-slate-100 dark:border-slate-800">{children}</div>;
 }
 
 export function CardBody({ children }: { children: React.ReactNode }) {

@@ -9,8 +9,8 @@ export default function Select(
     <select
       {...props}
       className={cn(
-        // Force readable text on iOS when device is in dark mode (body text becomes light).
         "w-full appearance-none rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary",
+        "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
         "bg-[linear-gradient(45deg,transparent_50%,#94a3b8_50%),linear-gradient(135deg,#94a3b8_50%,transparent_50%)] bg-[position:calc(100%-18px)_calc(1em+2px),calc(100%-13px)_calc(1em+2px)] bg-[size:6px_6px,6px_6px] bg-no-repeat pr-10",
         props.className
       )}

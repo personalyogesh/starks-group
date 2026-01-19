@@ -7,6 +7,7 @@ import logo from "@/assets/starks-logo.jpg";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import { MobileNav } from "@/app/components/MobileNav";
+import { ThemeToggle } from "@/app/components/ThemeToggle";
 
 export default function Navbar() {
   const { currentUser, logout } = useAuth();
@@ -15,7 +16,7 @@ export default function Navbar() {
   const isLoggedIn = Boolean(user);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur dark:bg-slate-950/80 dark:border-slate-800">
       <Container>
         <div className="py-4 flex items-center justify-between gap-4 relative">
           {/* Left: brand */}
@@ -32,28 +33,28 @@ export default function Navbar() {
               className="rounded-full ring-1 ring-slate-200"
             />
             <div className="leading-tight">
-              <div className="font-extrabold text-lg tracking-tight text-brand-deep">
+              <div className="font-extrabold text-lg tracking-tight text-brand-deep dark:text-slate-100">
                 Starks Cricket
               </div>
-              <div className="text-xs text-slate-500 font-semibold">Estd. 2018</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">Estd. 2018</div>
             </div>
           </Link>
 
           {/* Center: nav (desktop) — absolute center to match Figma even when right side changes */}
-          <nav className="hidden md:flex items-center gap-2 text-sm font-semibold text-slate-600 absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
-            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="/#about">
+          <nav className="hidden md:flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-200 absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/#about">
               About
             </Link>
-            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="/#programs">
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/#programs">
               Programs
             </Link>
-            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href={isLoggedIn ? "/events" : "/#events"}>
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href={isLoggedIn ? "/events" : "/#events"}>
               Events
             </Link>
-            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="/partners">
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/partners">
               Partners
             </Link>
-            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 transition" href="/dashboard">
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/dashboard">
               Community
             </Link>
           </nav>
@@ -61,6 +62,9 @@ export default function Navbar() {
           {/* Right: actions */}
           <div className="flex items-center justify-end gap-2 whitespace-nowrap">
             <MobileNav isAuthenticated={isLoggedIn} />
+            <div className="hidden sm:block">
+              <ThemeToggle />
+            </div>
             <div className="hidden sm:flex items-center gap-2">
               {user ? (
                 <>

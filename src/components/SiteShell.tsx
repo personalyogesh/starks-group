@@ -50,7 +50,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <ToastProvider>
-        <div className="bg-brand-bg text-slate-900 min-h-screen bg-stadium-glow flex flex-col">
+        <div className="bg-brand-bg text-slate-900 min-h-screen bg-stadium-glow flex flex-col dark:bg-[#0b1220] dark:text-slate-100">
           {isAppShell ? (
             <Suspense fallback={<div className="h-[72px] border-b border-slate-200 bg-white" />}>
               <DashboardHeader />

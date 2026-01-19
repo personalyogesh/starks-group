@@ -40,7 +40,7 @@ export default function Modal({
       {/* Dialog */}
       <div
         className={[
-          "relative z-[201] w-full rounded-3xl border border-slate-200 bg-white shadow-xl flex flex-col max-h-[85vh]",
+          "relative z-[201] w-full rounded-3xl border border-slate-200 bg-white shadow-xl flex flex-col max-h-[85vh] text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100",
           maxWidthClassName,
         ].join(" ")}
         role="dialog"
@@ -48,11 +48,11 @@ export default function Modal({
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-4">
+        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-4">
           <div className="text-xl font-extrabold tracking-tight">{title}</div>
           <button
             type="button"
-            className="h-10 w-10 rounded-2xl hover:bg-slate-50 border border-slate-200"
+            className="h-10 w-10 rounded-2xl hover:bg-slate-50 border border-slate-200 dark:border-slate-700 dark:hover:bg-slate-800"
             onClick={onClose}
             aria-label="Close"
           >
@@ -61,7 +61,7 @@ export default function Modal({
         </div>
         <div className="px-6 py-5 overflow-auto flex-1">{children}</div>
         {footer && (
-          <div className="px-6 py-4 border-t border-slate-100 bg-white">
+          <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
             {footer}
           </div>
         )}

@@ -19,8 +19,8 @@ export default function Button({
       : variant === "secondary"
       ? "bg-brand-gold text-slate-900 hover:opacity-90"
       : variant === "dark"
-      ? "bg-slate-950 text-white hover:bg-slate-900"
-      : "border border-slate-300 bg-white hover:bg-slate-50";
+      ? "bg-slate-950 text-white hover:bg-slate-900 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+      : "border border-slate-300 bg-white hover:bg-slate-50 text-slate-900 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:bg-slate-900 dark:text-slate-100";
 
   return (
     <button
