@@ -8,6 +8,7 @@ import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import { MobileNav } from "@/app/components/MobileNav";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
+import { MobileSidebar } from "@/app/components/MobileSidebar";
 
 export default function Navbar() {
   const { currentUser, logout } = useAuth();
@@ -61,6 +62,38 @@ export default function Navbar() {
 
           {/* Right: actions */}
           <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+            <MobileSidebar
+              isAuthenticated={isLoggedIn}
+              userProfile={
+                user
+                  ? {
+                      displayName: userDoc?.name || user.email || "Member",
+                      email: user.email ?? "",
+                      photoURL: userDoc?.avatarUrl,
+                      role: userDoc?.role,
+                      postsCount: userDoc?.stats?.posts ?? 0,
+                      likesReceived: userDoc?.stats?.likes ?? 0,
+                      eventsJoined: userDoc?.stats?.events ?? 0,
+                      unreadNotifications: 0,
+                    }
+                  : undefined
+              }
+              onNavigate={(page) => {
+                if (page === "dashboard") return window.location.assign("/dashboard");
+                if (page === "members" || page === "community") return window.location.assign("/members");
+                if (page === "events") return window.location.assign("/events");
+                if (page === "videos") return window.location.assign("/videos");
+                if (page === "partners") return window.location.assign("/partners");
+                if (page === "profile") return window.location.assign("/profile");
+                if (page === "settings") return window.location.assign("/settings");
+                if (page === "notifications") return window.location.assign("/notifications");
+                if (page === "admin") return window.location.assign("/admin");
+                if (page === "help" || page === "about" || page === "contact") return window.location.assign("/#about");
+                if (page === "login") return window.location.assign("/login");
+                if (page === "register") return window.location.assign("/register");
+              }}
+              onLogout={logout}
+            />
             <MobileNav isAuthenticated={isLoggedIn} />
             <div className="hidden sm:block">
               <ThemeToggle />

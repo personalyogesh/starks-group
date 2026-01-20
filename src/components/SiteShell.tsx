@@ -10,6 +10,7 @@ import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import Container from "@/components/ui/Container";
 import { ToastProvider } from "@/components/ui/ToastProvider";
+import { GlobalErrorReporter } from "@/app/components/GlobalErrorReporter";
 
 function AuthStatusIndicator({ pathname }: { pathname: string }) {
   const { currentUser } = useAuth();
@@ -43,6 +44,8 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/members/") ||
     pathname === "/members" ||
     pathname === "/profile" ||
+    pathname === "/notifications" ||
+    pathname === "/settings" ||
     pathname === "/videos" ||
     pathname === "/admin" ||
     pathname.startsWith("/admin/");
@@ -70,6 +73,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
             </>
           )}
           <AuthStatusIndicator pathname={pathname} />
+          <GlobalErrorReporter />
         </div>
       </ToastProvider>
     </AuthProvider>

@@ -33,8 +33,21 @@ import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import PostCard from "@/components/feed/PostCard";
-import { UserAccountMenu } from "@/app/components/UserAccountMenu";
-import { Bell, PlusCircle } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
+import { reportIssue } from "@/lib/reportIssue";
+import {
+  Award,
+  Calendar,
+  Home,
+  Image as ImageIcon,
+  PlusCircle,
+  Play,
+  TrendingUp,
+  User as UserIcon,
+  Users,
+  Video,
+  Youtube,
+} from "lucide-react";
 import { AuthModal, AuthModalTrigger } from "@/app/components/AuthModal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
@@ -54,7 +67,7 @@ function withinDays(ts: any, days: number) {
 
 export default function UserDashboard() {
   const { toast } = useToast();
-  const { currentUser, loading, logout } = useAuth();
+  const { currentUser, loading } = useAuth();
   const router = useRouter();
 
   const user = currentUser?.authUser ?? null;
@@ -76,7 +89,6 @@ export default function UserDashboard() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [postsError, setPostsError] = useState<string | null>(null);
-  const [postsDebug, setPostsDebug] = useState<{ mode: "all" | "public"; count: number; fromCache?: boolean } | null>(null);
   const appliedCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const olderCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
 
@@ -86,9 +98,17 @@ export default function UserDashboard() {
 
   const onNavigate = (page: string) => {
     if (page === "landing") return router.push("/");
+    if (page === "dashboard") return router.push("/dashboard");
     if (page === "create-post") return router.push("/create-post");
-    if (page === "profile" || page === "edit-profile" || page === "settings") return router.push("/profile");
-    if (page === "notifications") return router.push("/dashboard");
+    if (page === "profile" || page === "edit-profile") return router.push("/profile");
+    if (page === "settings") return router.push("/settings");
+    if (page === "notifications") return router.push("/notifications");
+    if (page === "login") return router.push("/login");
+    if (page === "register") return router.push("/register");
+    if (page === "members" || page === "community") return router.push("/members");
+    if (page === "events") return router.push("/events");
+    if (page === "videos") return router.push("/videos");
+    if (page === "partners") return router.push("/partners");
     if (page === "help") return router.push("/#about");
     if (page === "admin" && isAdmin) return router.push("/admin");
   };
@@ -156,7 +176,6 @@ export default function UserDashboard() {
     // - approved member: query only readable privacy values (prevents a single unreadable doc from breaking the whole query)
     // - public/pending: query only public-ish posts
     const canReadAllFeed = Boolean(isApproved || isAdmin);
-    const mode: "all" | "public" = canReadAllFeed ? "all" : "public";
     const q = canReadAllFeed
       ? query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(PAGE_SIZE))
       : query(collection(db, "posts"), where("privacy", "in", [null, "public"] as any), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
@@ -166,7 +185,6 @@ export default function UserDashboard() {
         const docs = snap.docs.map((d) => ({ id: d.id, data: d.data() as PostDoc }));
         // Clear any previous error once we have a successful snapshot.
         setPostsError(null);
-        setPostsDebug({ mode, count: docs.length, fromCache: snap.metadata.fromCache });
         setIncomingFirstPage(docs);
         appliedCursorRef.current = snap.docs[snap.docs.length - 1] ?? null;
         if (appliedFirstPage.length === 0) {
@@ -192,13 +210,8 @@ export default function UserDashboard() {
   }, [appliedFirstPage, olderPosts]);
 
   const visiblePosts = useMemo(() => {
-    const approved = Boolean(isApproved || isAdmin);
-    return combinedPosts.filter(({ data }) => {
-      const p = (data.privacy ?? "public") as string;
-      if (!p || p === "public") return true;
-      if (p === "members" || p === "friends") return approved;
-      return true;
-    });
+    // Reads are public per rules; privacy is a label only.
+    return combinedPosts;
   }, [combinedPosts, isApproved, isAdmin]);
 
   const filteredPosts = useMemo(() => {
@@ -319,7 +332,21 @@ export default function UserDashboard() {
 
         {postsError && !hasAnyPosts && (
           <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-            <div className="font-semibold">Posts couldn’t load.</div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="font-semibold">Posts couldn’t load.</div>
+              <button
+                type="button"
+                className="text-rose-900/80 underline font-semibold"
+                onClick={() =>
+                  reportIssue({
+                    message: postsError,
+                    context: { source: "UserDashboard", feature: "posts" },
+                  })
+                }
+              >
+                Report
+              </button>
+            </div>
             <div className="mt-1">{postsError}</div>
             <div className="mt-2 text-rose-900/80">
               If you recently changed Firestore rules/indexes, deploy them with{" "}
@@ -336,57 +363,206 @@ export default function UserDashboard() {
           </div>
         )}
 
-        {currentUser && (
-          <div className="mb-6 text-xs text-slate-500">
-            status: <b>{userDoc?.status ?? "missing"}</b> · role: <b>{userDoc?.role ?? "missing"}</b>
-          </div>
-        )}
-
-        <div className="mb-6 text-xs text-slate-500">
-          firebase: <b>{String(isFirebaseConfigured)}</b>
-          {" · "}
-          postsQuery: <b>{postsDebug?.mode ?? "n/a"}</b>
-          {" · "}
-          firstPageCount: <b>{postsDebug?.count ?? "n/a"}</b>
-        </div>
+        {/* Debug info removed (was used to diagnose Firestore access issues) */}
 
         <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr_300px] gap-6">
           {/* Left sidebar */}
           <aside className="hidden lg:block space-y-6">
+            {/* User Profile Card (only for authenticated users) */}
+            {currentUser && (
+              <Card>
+                <CardBody>
+                  <div className="p-6 text-center">
+                    <button
+                      type="button"
+                      onClick={() => onNavigate("profile")}
+                      className="group block w-full"
+                    >
+                      <Avatar className="size-20 mx-auto mb-3 ring-4 ring-slate-100 group-hover:ring-blue-100 transition-all">
+                        {userDoc?.avatarUrl || user?.photoURL ? (
+                          <AvatarImage
+                            src={(userDoc?.avatarUrl || user?.photoURL) as string}
+                            alt={userDoc?.name || user?.email || "User"}
+                          />
+                        ) : (
+                          <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
+                            {(userDoc?.name || user?.email || "U").trim().slice(0, 1).toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <h3 className="font-semibold text-lg group-hover:text-blue-700 transition-colors">
+                        {userDoc?.name || user?.email || "Member"}
+                      </h3>
+                      <p className="text-sm text-slate-500 mb-4">
+                        {userDoc?.role === "admin" ? "Administrator" : "Member"}
+                      </p>
+                    </button>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-3 gap-2 text-center mb-4">
+                      <div className="p-2 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
+                        <div className="text-xl font-extrabold text-blue-700">{userDoc?.stats?.posts ?? 0}</div>
+                        <div className="text-xs text-slate-500">Posts</div>
+                      </div>
+                      <div className="p-2 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
+                        <div className="text-xl font-extrabold text-rose-700">{userDoc?.stats?.likes ?? 0}</div>
+                        <div className="text-xs text-slate-500">Likes</div>
+                      </div>
+                      <div className="p-2 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
+                        <div className="text-xl font-extrabold text-emerald-700">{userDoc?.stats?.events ?? 0}</div>
+                        <div className="text-xs text-slate-500">Events</div>
+                      </div>
+                    </div>
+
+                    <Button variant="outline" size="sm" className="w-full" onClick={() => onNavigate("profile")}>
+                      <UserIcon className="size-4 mr-2" />
+                      View Profile
+                    </Button>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
+
+            {/* Navigation Menu */}
             <Card>
               <CardBody>
-                <div className="grid gap-2 text-sm font-semibold text-slate-700">
-                  <NavLink href="/dashboard" active>
-                    Feed
-                  </NavLink>
-                  <NavLink href="/members">Community</NavLink>
-                  <NavLink href="/events">Events</NavLink>
-                  <NavLink href="/videos">Videos</NavLink>
-                  <NavLink href="/#programs">Programs</NavLink>
-                </div>
+                <nav className="space-y-1 p-2">
+                  <button
+                    type="button"
+                    onClick={() => onNavigate("dashboard")}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-50 hover:text-blue-700 transition-colors text-left font-semibold bg-blue-50 text-blue-700"
+                  >
+                    <Home className="size-5" />
+                    <span>Feed</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onNavigate("members")}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 transition-colors text-left text-slate-800 font-semibold"
+                  >
+                    <Users className="size-5 text-slate-700" />
+                    <span>Community</span>
+                    <span className="ml-auto rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                      2.5K
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onNavigate("events")}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 transition-colors text-left text-slate-800 font-semibold"
+                  >
+                    <Calendar className="size-5 text-slate-700" />
+                    <span>Events</span>
+                    <span className="ml-auto rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                      {events.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onNavigate("videos")}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 transition-colors text-left text-slate-800 font-semibold"
+                  >
+                    <Video className="size-5 text-slate-700" />
+                    <span>Videos</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onNavigate("partners")}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-100 transition-colors text-left text-slate-800 font-semibold"
+                  >
+                    <Award className="size-5 text-slate-700" />
+                    <span>Partners</span>
+                  </button>
+                </nav>
               </CardBody>
             </Card>
 
+            {/* Quick Stats Card */}
+            {currentUser && (
+              <Card className="border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50">
+                <CardBody>
+                  <div className="p-4">
+                    <h4 className="font-semibold text-sm text-slate-700 mb-3 flex items-center gap-2">
+                      <TrendingUp className="size-4" />
+                      This Week
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Posts created</span>
+                        <span className="font-semibold">{postsThisWeek}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Connections</span>
+                        <span className="font-semibold">{connections}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Events joined</span>
+                        <span className="font-semibold">{eventsJoined}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
+
+            {/* Upcoming Events Preview */}
             <Card>
-              <CardHeader>
-                <div className="font-extrabold tracking-tight text-lg flex items-center gap-2">
-                  <span className="text-slate-900">Quick Stats</span>
-                </div>
-              </CardHeader>
               <CardBody>
-                <div className="grid gap-4 text-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="text-slate-600">Posts this week</div>
-                    <div className="font-bold text-slate-900">{postsThisWeek}</div>
+                <div className="p-4">
+                  <h3 className="font-extrabold mb-3 flex items-center gap-2 text-slate-900">
+                    <Calendar className="size-5 text-blue-700" />
+                    Upcoming Events
+                  </h3>
+
+                  <div className="space-y-3">
+                    {events.slice(0, 3).map(({ id, data }) => {
+                      const d = data?.dateTime ? new Date(data.dateTime) : null;
+                      const month = d && !Number.isNaN(d.getTime())
+                        ? d.toLocaleDateString(undefined, { month: "short" }).toUpperCase()
+                        : "—";
+                      const day = d && !Number.isNaN(d.getTime()) ? String(d.getDate()) : "—";
+
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          className="group w-full text-left"
+                          onClick={() => onNavigate("events")}
+                        >
+                          <div className="flex gap-3">
+                            <div className="size-12 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex flex-col items-center justify-center text-white shrink-0">
+                              <span className="text-[10px] font-semibold leading-none">{month}</span>
+                              <span className="text-lg font-extrabold leading-none">{day}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-sm group-hover:text-blue-700 transition-colors truncate">
+                                {data.title}
+                              </h4>
+                              <p className="text-xs text-slate-500 truncate">{data.dateTime || "—"}</p>
+                              {eventRegistered[id] && (
+                                <span className="inline-flex mt-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                                  ✓ Registered
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-slate-600">Connections</div>
-                    <div className="font-bold text-slate-900">{connections}</div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-slate-600">Events joined</div>
-                    <div className="font-bold text-slate-900">{eventsJoined}</div>
-                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-3"
+                    onClick={() => onNavigate("events")}
+                  >
+                    View All Events →
+                  </Button>
                 </div>
               </CardBody>
             </Card>
@@ -394,83 +570,116 @@ export default function UserDashboard() {
 
           {/* Center feed */}
           <section className="space-y-6">
-            <Card>
-              <CardBody>
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-slate-200 grid place-items-center text-xs font-bold text-slate-700">
-                    You
-                  </div>
-                  {currentUser ? (
-                    <Link href="/create-post" className="flex-1">
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 hover:bg-slate-100 transition">
-                        Share your thoughts, photos, or achievements...
-                      </div>
-                    </Link>
-                  ) : (
+            {/* Create Post - Show different based on auth status */}
+            {currentUser ? (
+              <Card>
+                <CardBody>
+                  <div className="p-4">
                     <button
                       type="button"
-                      className="flex-1 text-left rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 hover:bg-slate-100 transition"
-                      onClick={() => setAuthGateOpen(true)}
-                    >
-                      Share your thoughts, photos, or achievements...
-                    </button>
-                  )}
-                </div>
-                <div className="mt-4 border-t border-slate-100 pt-4 flex items-center gap-3 text-sm text-slate-600">
-                  <div className="hidden sm:block w-72">
-                    <Input
-                      className="bg-slate-50 border-slate-200"
-                      placeholder="Search posts or members..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="ml-auto flex items-center gap-3">
-                    {/* Notifications Button */}
-                    <button
-                      type="button"
-                      className="relative h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition grid place-items-center"
-                      aria-label="Notifications"
-                      onClick={() => onNavigate("notifications")}
-                    >
-                      <Bell className="size-5 text-slate-700" />
-                      <span className="absolute top-2.5 right-2.5 size-2 bg-red-500 rounded-full"></span>
-                    </button>
-
-                    {/* Create Post Button */}
-                    <Button
-                      variant="dark"
-                      className="hidden sm:inline-flex items-center"
-                      onClick={() => (currentUser ? onNavigate("create-post") : requireAuth("post"))}
-                    >
-                      <PlusCircle className="size-4 mr-2" />
-                      Create Post
-                    </Button>
-
-                    {/* User Account Menu */}
-                    <UserAccountMenu
-                      user={{
-                        name:
-                          userDoc?.name ||
-                          `${userDoc?.firstName ?? ""} ${userDoc?.lastName ?? ""}`.trim() ||
-                          user?.email ||
-                          "Account",
-                        email: user?.email ?? "",
-                        avatar: userDoc?.avatarUrl,
-                        role: userDoc?.joinAs ?? userDoc?.role,
+                      onClick={() => {
+                        if (!isApproved) {
+                          toast({
+                            kind: "error",
+                            title: "Approval required",
+                            description:
+                              "Your account is pending admin approval. Posting is disabled until you’re approved.",
+                          });
+                          return;
+                        }
+                        onNavigate("create-post");
                       }}
-                      notificationCount={5}
-                      onNavigate={onNavigate}
-                      onLogout={async () => {
-                        await logout();
-                        onNavigate("landing");
-                      }}
-                    />
+                      className="w-full text-left px-4 py-3 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-600 transition-colors flex items-center gap-3"
+                    >
+                      <Avatar className="size-10">
+                        {userDoc?.avatarUrl || user?.photoURL ? (
+                          <AvatarImage
+                            src={(userDoc?.avatarUrl || user?.photoURL) as string}
+                            alt={userDoc?.name || user?.email || "User"}
+                          />
+                        ) : (
+                          <AvatarFallback>
+                            {(userDoc?.name || user?.email || "U").trim().slice(0, 1).toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <span>Share your thoughts, photos, or achievements...</span>
+                    </button>
+
+                    <div className="flex items-center justify-around mt-4 pt-4 border-t border-slate-200">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!isApproved) {
+                            toast({
+                              kind: "error",
+                              title: "Approval required",
+                              description:
+                                "Your account is pending admin approval. Posting is disabled until you’re approved.",
+                            });
+                            return;
+                          }
+                          onNavigate("create-post");
+                        }}
+                        className="flex-1 border-transparent bg-transparent hover:bg-blue-50 hover:text-blue-700 flex flex-col items-center justify-center gap-1 py-3"
+                      >
+                        <ImageIcon className="size-5" />
+                        <span className="text-sm font-semibold leading-tight">Photo</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push("/videos")}
+                        className="flex-1 border-transparent bg-transparent hover:bg-green-50 hover:text-green-700 flex flex-col items-center justify-center gap-1 py-3"
+                      >
+                        <Video className="size-5" />
+                        <span className="text-sm font-semibold leading-tight">Video</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push("/events")}
+                        className="flex-1 border-transparent bg-transparent hover:bg-purple-50 hover:text-purple-700 flex flex-col items-center justify-center gap-1 py-3"
+                      >
+                        <Calendar className="size-5" />
+                        <span className="text-sm font-semibold leading-tight">Event</span>
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </CardBody>
-            </Card>
+                </CardBody>
+              </Card>
+            ) : (
+              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                <CardBody>
+                  <div className="p-6 text-center">
+                    <div className="size-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <PlusCircle className="size-8 text-blue-600" />
+                    </div>
+                    <h3 className="text-xl font-extrabold text-slate-900 mb-2">Join the Conversation</h3>
+                    <p className="text-slate-700 mb-4">
+                      Sign up to share your cricket journey, connect with players, and participate in events.
+                    </p>
+                    <div className="flex gap-3 justify-center">
+                      <Button onClick={() => onNavigate("register")}>Create Account</Button>
+                      <Button variant="outline" onClick={() => onNavigate("login")}>
+                        Login
+                      </Button>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
+
+            {/* Feed search (keep for now; header search does not currently filter this feed) */}
+            <div className="hidden sm:block">
+              <Input
+                className="bg-slate-50 border-slate-200"
+                placeholder="Search posts or members..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
 
             {hasNewPosts && (
               <button
@@ -506,172 +715,223 @@ export default function UserDashboard() {
           </section>
 
           {/* Right sidebar */}
-          <aside className="hidden lg:block space-y-6">
-            <Card>
-              <CardHeader>
-                <div className="font-extrabold tracking-tight text-lg flex items-center gap-2">
-                  <span className="text-slate-900">Upcoming Events</span>
-                </div>
-              </CardHeader>
-              <CardBody>
-                {events.length === 0 ? (
-                  <div className="text-sm text-slate-600">
-                    {isFirebaseConfigured ? "No upcoming events." : "Connect Firebase to load events."}
-                  </div>
-                ) : (
-                  <div className="grid gap-3" id="events">
-                    {events.slice(0, 2).map(({ id, data }, idx) => {
-                      const max = data.maxParticipants ?? null;
-                      const count = data.registrationCount ?? data.registeredUsers?.length ?? 0;
-                      const isFull = typeof max === "number" && max > 0 && count >= max;
-                      const isReg = Boolean(eventRegistered[id]);
-                      const canRegister = Boolean(uid && isApproved);
-                      return (
-                      <div
-                        key={id}
-                        className={[
-                          "rounded-2xl border p-4",
-                          idx === 0 ? "border-blue-100 bg-blue-50" : "border-emerald-100 bg-emerald-50",
-                        ].join(" ")}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-14 text-center">
-                            <div className={idx === 0 ? "text-blue-700" : "text-emerald-700"}>
-                              <div className="text-2xl font-extrabold">
-                                {String(new Date(data.dateTime).getDate()).padStart(2, "0")}
-                              </div>
-                              <div className="text-xs font-bold">JAN</div>
-                            </div>
-                          </div>
-                          <div>
-                            <div className="font-semibold text-slate-900">{data.title}</div>
-                            <div className="text-sm text-slate-600 mt-0.5">{new Date(data.dateTime).toLocaleString()}</div>
-                            <div className="text-xs text-slate-500 mt-1">
-                              {count}
-                              {typeof max === "number" && max > 0 ? ` / ${max}` : ""} registered
-                              {isFull && !isReg ? " · Full" : ""}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-3">
-                          {!uid ? (
-                            <Button variant="outline" className="w-full" onClick={() => requireAuth("event")}>
-                              Login to Register
-                            </Button>
-                          ) : isReg ? (
-                            <Button variant="outline" className="w-full" onClick={() => toggleEventRegistration(id)}>
-                              ✓ Registered (Tap to Unregister)
-                            </Button>
-                          ) : isFull ? (
-                            <Button variant="outline" className="w-full" disabled>
-                              Event Full
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="dark"
-                              className="w-full"
-                              disabled={!canRegister}
-                              title={!isApproved ? "Pending admin approval" : undefined}
-                              onClick={() => toggleEventRegistration(id)}
-                            >
-                              Register
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      );
-                    })}
-                    <Link href="/events">
-                      <Button variant="outline" className="w-full">
-                        View All Events
+          <aside className="hidden lg:block space-y-4">
+            {/* Suggested Connections (for authenticated users) */}
+            {currentUser && (
+              <Card>
+                <CardBody>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-extrabold flex items-center gap-2 text-slate-900">
+                        <Users className="size-5 text-blue-700" />
+                        Suggested
+                      </h3>
+                      <Button variant="outline" size="sm" className="text-xs" onClick={() => router.push("/members")}>
+                        See all
                       </Button>
-                    </Link>
-                  </div>
-                )}
-              </CardBody>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div className="font-extrabold tracking-tight text-lg flex items-center gap-2">
-                  <span className="text-slate-900">Latest Videos</span>
-                </div>
-              </CardHeader>
-              <CardBody>
-                <div className="grid gap-4">
-                  {videos.length === 0 ? (
-                    <div className="text-sm text-slate-600">
-                      {isFirebaseConfigured ? "No videos yet." : "Connect Firebase to load videos."}
                     </div>
-                  ) : (
-                    videos.map(({ id, data }) => (
-                      <div key={id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                        <div className="relative aspect-[16/9] bg-black">
-                          <iframe
-                            className="absolute inset-0 h-full w-full"
-                            src={`https://www.youtube.com/embed/${data.videoId}`}
-                            title={data.title}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowFullScreen
-                          />
+                    <div className="space-y-3">
+                      {[
+                        {
+                          name: "Rajesh Kumar",
+                          role: "Fast Bowler",
+                          avatar:
+                            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=60",
+                        },
+                        {
+                          name: "Priya Singh",
+                          role: "All-rounder",
+                          avatar:
+                            "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=60",
+                        },
+                        {
+                          name: "Amit Patel",
+                          role: "Batsman",
+                          avatar:
+                            "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=60",
+                        },
+                      ].map((person) => (
+                        <div key={person.name} className="flex items-center gap-3">
+                          <Avatar className="size-10">
+                            <AvatarImage src={person.avatar} alt={person.name} />
+                            <AvatarFallback>{person.name[0]}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm truncate text-slate-900">{person.name}</p>
+                            <p className="text-xs text-slate-500">{person.role}</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            onClick={() =>
+                              toast({
+                                kind: "info",
+                                title: "Coming soon",
+                                description: "Following members will be available soon.",
+                              })
+                            }
+                          >
+                            Follow
+                          </Button>
                         </div>
-                        <div className="p-4">
-                          <div className="font-semibold text-slate-900">{data.title}</div>
-                          {data.description && <div className="text-sm text-slate-500 mt-1 line-clamp-2">{data.description}</div>}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                  <Link href="/videos">
-                    <Button variant="outline" className="w-full">
-                      View All
+                      ))}
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
+
+            {/* Latest Videos */}
+            <Card>
+              <CardBody>
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-extrabold flex items-center gap-2 text-slate-900">
+                      <Youtube className="size-5 text-rose-600" />
+                      Latest Videos
+                    </h3>
+                    <Button variant="outline" size="sm" className="text-xs" onClick={() => router.push("/videos")}>
+                      View all
                     </Button>
-                  </Link>
+                  </div>
+
+                  <div className="space-y-3">
+                    {videos.length === 0 ? (
+                      <div className="text-sm text-slate-600">
+                        {isFirebaseConfigured ? "No videos yet." : "Connect Firebase to load videos."}
+                      </div>
+                    ) : (
+                      videos.slice(0, 2).map(({ id, data }) => {
+                        const thumb = `https://img.youtube.com/vi/${data.videoId}/hqdefault.jpg`;
+                        const href = `https://www.youtube.com/watch?v=${data.videoId}`;
+                        return (
+                          <a
+                            key={id}
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block group"
+                          >
+                            <div className="relative aspect-video bg-slate-200 rounded-xl mb-2 overflow-hidden">
+                              {/* Use <img> (not next/image) so we don't depend on remotePatterns */}
+                              <img
+                                src={thumb}
+                                alt={data.title}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                loading="lazy"
+                              />
+                              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                                <div className="size-12 bg-rose-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                                  <Play className="size-6 text-white ml-1" fill="white" />
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-sm font-semibold group-hover:text-blue-700 transition-colors line-clamp-2 text-slate-900">
+                              {data.title}
+                            </p>
+                            <p className="text-xs text-slate-500">Watch on YouTube</p>
+                          </a>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </CardBody>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <div className="font-extrabold tracking-tight text-lg">Suggested Connections</div>
-              </CardHeader>
+            {/* Community Stats */}
+            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100">
               <CardBody>
-                <div className="text-sm text-slate-600">
-                  Coming soon — we’ll suggest members based on shared interests and activity.
+                <div className="p-4">
+                  <h3 className="font-extrabold mb-3 flex items-center gap-2 text-slate-900">
+                    <TrendingUp className="size-5 text-blue-700" />
+                    Community
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="size-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <Users className="size-4 text-blue-700" />
+                        </div>
+                        <span className="text-sm text-slate-600">Active Members</span>
+                      </div>
+                      <span className="font-extrabold text-blue-700">2,547</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="size-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                          <TrendingUp className="size-4 text-emerald-700" />
+                        </div>
+                        <span className="text-sm text-slate-600">Posts (loaded)</span>
+                      </div>
+                      <span className="font-extrabold text-emerald-700">{combinedPosts.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="size-8 bg-purple-100 rounded-full flex items-center justify-center">
+                          <Calendar className="size-4 text-purple-700" />
+                        </div>
+                        <span className="text-sm text-slate-600">Events</span>
+                      </div>
+                      <span className="font-extrabold text-purple-700">{events.length}</span>
+                    </div>
+                  </div>
                 </div>
               </CardBody>
             </Card>
+
+            {/* Footer Links */}
+            <div className="px-4 py-3 text-xs text-slate-500 space-y-2">
+              <div className="flex flex-wrap gap-2">
+                <Link href="/#about" className="hover:underline">
+                  About
+                </Link>
+                <span>•</span>
+                <Link href="/#about" className="hover:underline">
+                  Help
+                </Link>
+                <span>•</span>
+                <Link href="/privacy" className="hover:underline">
+                  Privacy
+                </Link>
+                <span>•</span>
+                <Link href="/terms" className="hover:underline">
+                  Terms
+                </Link>
+              </div>
+              <p className="text-slate-400">© 2026 Starks Cricket Club</p>
+            </div>
           </aside>
         </div>
       </div>
       {/* Auth gate for public viewers */}
       <AuthModal open={authGateOpen} onOpenChange={setAuthGateOpen} trigger={authTrigger} />
+
+      {/* Floating Action Button - Mobile Only */}
+      {currentUser && (
+        <button
+          type="button"
+          onClick={() => {
+            if (!isApproved) {
+              toast({
+                kind: "error",
+                title: "Approval required",
+                description: "Your account is pending admin approval. Posting is disabled until you’re approved.",
+              });
+              return;
+            }
+            onNavigate("create-post");
+          }}
+          className="md:hidden fixed bottom-20 right-4 z-40 size-14 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-full shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center"
+          aria-label="Create post"
+        >
+          <PlusCircle className="size-6" />
+        </button>
+      )}
     </div>
   );
 }
 
-function NavLink({
-  href,
-  children,
-  active,
-}: {
-  href: string;
-  children: React.ReactNode;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={[
-        "rounded-2xl px-4 py-3 transition flex items-center gap-3",
-        active
-          ? "bg-slate-950 text-white"
-          : "hover:bg-slate-50 text-slate-800 border border-transparent hover:border-slate-200",
-      ].join(" ")}
-    >
-      {children}
-    </Link>
-  );
-}
+// NavLink removed — left sidebar now uses icon-based buttons.
 

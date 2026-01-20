@@ -29,12 +29,9 @@ service cloud.firestore {
     }
 
     function canReadPostData(postData) {
-      // Default to public if missing privacy field (back-compat).
-      return postData.privacy == null
-        || postData.privacy == "public"
-        || isAdmin()
-        // Approved members can read posts (treat any unknown privacy as members-visible to avoid feed-breaking unreadable docs).
-        || isApproved();
+      // Per product policy: posts are publicly readable (privacy is a label + interaction gating only).
+      // This avoids query failures where a single unreadable doc breaks the entire feed.
+      return true;
     }
 
     function canReadPost(postId) {
@@ -107,7 +104,10 @@ service cloud.firestore {
 
       // RSVP docs: user can manage their own RSVP; admin can read all.
       match /rsvps/{uid} {
-        allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+        // Back-compat: some older RSVP docs may not use the uid as the document id.
+        // Collection group queries will fail if *any* matched doc is unreadable, so allow reads
+        // when the RSVP doc's stored uid matches the signed-in user.
+        allow read: if isAdmin() || (signedIn() && (request.auth.uid == uid || resource.data.uid == request.auth.uid));
         allow create, update: if isApproved()
           && request.auth.uid == uid
           && request.resource.data.uid == uid;
@@ -117,7 +117,7 @@ service cloud.firestore {
 
     // --- Posts (public read w/ privacy; approved write) ---
     match /posts/{postId} {
-      allow read: if canReadPostData(resource.data);
+      allow read: if true;
 
       allow create: if (isApproved() || isAdmin())
         && request.resource.data.createdBy == request.auth.uid;
@@ -147,7 +147,7 @@ service cloud.firestore {
 
       // Likes (subcollection model)
       match /likes/{uid} {
-        allow read: if canReadPost(postId);
+        allow read: if true;
         allow create, delete: if (isApproved() || isAdmin()) && request.auth.uid == uid;
       }
 
@@ -159,7 +159,7 @@ service cloud.firestore {
 
       // Legacy comments subcollection (we dual-write for back-compat).
       match /comments/{commentId} {
-        allow read: if canReadPost(postId);
+        allow read: if true;
         allow create: if (isApproved() || isAdmin())
           && request.resource.data.createdBy == request.auth.uid;
         allow delete: if isAdmin() || (isApproved() && resource.data.createdBy == request.auth.uid);
@@ -168,10 +168,10 @@ service cloud.firestore {
 
     // Prompt-aligned top-level comments
     match /comments/{commentId} {
-      allow read: if canReadPost(resource.data.postId);
+      allow read: if true;
       allow create: if (isApproved() || isAdmin())
         && request.resource.data.createdBy == request.auth.uid
-        && canReadPost(request.resource.data.postId);
+        && true;
       allow delete: if isAdmin() || (isApproved() && resource.data.createdBy == request.auth.uid);
     }
 
@@ -180,6 +180,19 @@ service cloud.firestore {
       allow read: if signedIn() && resource.data.userId == request.auth.uid;
       allow create: if isApproved();
       allow update, delete: if isAdmin();
+    }
+
+    // Issue reports (user-friendly error reporting)
+    // - Signed-in users can create reports (and attachments)
+    // - Admins can read/manage reports
+    match /issueReports/{reportId} {
+      allow create: if signedIn();
+      allow read, update, delete: if isAdmin();
+
+      match /attachments/{attachmentId} {
+        allow create: if signedIn();
+        allow read, update, delete: if isAdmin();
+      }
     }
   }
 }

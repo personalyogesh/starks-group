@@ -5,7 +5,13 @@ import Button from "@/components/ui/Button";
 import { useTheme } from "@/app/components/ThemeProvider";
 import { useHydrated } from "@/lib/useHydrated";
 
-export function ThemeToggle({ className }: { className?: string }) {
+export function ThemeToggle({
+  className,
+  showSystemLink = true,
+}: {
+  className?: string;
+  showSystemLink?: boolean;
+}) {
   const { resolved, toggle, mode, setMode } = useTheme();
   const hydrated = useHydrated();
 
@@ -43,7 +49,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       </Button>
 
       {/* Optional: allow users to return to system default */}
-      {mode !== "system" && (
+      {showSystemLink && mode !== "system" && (
         <button
           type="button"
           className="text-xs font-semibold text-slate-600 dark:text-slate-300 hover:underline"

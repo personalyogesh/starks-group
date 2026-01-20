@@ -29,6 +29,7 @@ import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/ToastProvider";
 import { profileEditSchema } from "@/lib/validation";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { reportIssue } from "@/lib/reportIssue";
 
 function tsToDate(ts: any): Date | null {
   if (!ts) return null;
@@ -450,7 +451,21 @@ export default function ProfilePage() {
 
         {permError && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {permError}
+            <div className="flex items-start justify-between gap-3">
+              <div>{permError}</div>
+              <button
+                type="button"
+                className="underline font-semibold text-amber-900/80 whitespace-nowrap"
+                onClick={() =>
+                  reportIssue({
+                    message: permError,
+                    context: { source: "ProfilePage" },
+                  })
+                }
+              >
+                Report
+              </button>
+            </div>
           </div>
         )}
 
