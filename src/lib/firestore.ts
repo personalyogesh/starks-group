@@ -55,6 +55,23 @@ export type UserDoc = {
     events: number;
     likes: number;
   };
+  preferences?: {
+    notifications?: {
+      email?: boolean;
+      push?: boolean;
+      posts?: boolean;
+      comments?: boolean;
+      likes?: boolean;
+      events?: boolean;
+      newsletter?: boolean;
+    };
+    privacy?: {
+      profilePublic?: boolean;
+      showEmail?: boolean;
+      showPosts?: boolean;
+      allowMessages?: boolean;
+    };
+  };
   events?: string[];
   status: UserStatus;
   role: UserRole;

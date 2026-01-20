@@ -9,31 +9,43 @@ service firebase.storage {
       return signedIn() && request.auth.token.admin == true;
     }
 
+    function isImageUnder5Mb() {
+      return request.resource != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     // Public reads for app assets (images shown on landing/dashboard).
     // Writes are restricted by path.
     match /profiles/{uid}/{allPaths=**} {
       allow read: if true;
-      allow write: if signedIn() && request.auth.uid == uid;
+      allow write: if signedIn() && request.auth.uid == uid && isImageUnder5Mb();
     }
 
     match /post-images/{uid}/{allPaths=**} {
       allow read: if true;
-      allow write: if signedIn() && request.auth.uid == uid;
+      allow write: if signedIn() && request.auth.uid == uid && isImageUnder5Mb();
     }
 
     match /carousel/{uid}/{allPaths=**} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() && isImageUnder5Mb();
     }
 
     match /partners/{allPaths=**} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() && isImageUnder5Mb();
     }
 
     match /event-images/{uid}/{allPaths=**} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() && isImageUnder5Mb();
+    }
+
+    // Issue report screenshots (private to reporter + admins)
+    match /issue-reports/{uid}/{allPaths=**} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow write: if signedIn() && request.auth.uid == uid && isImageUnder5Mb();
     }
 
     // Default deny

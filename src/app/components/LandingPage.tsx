@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Award, Calendar, MessageCircle, Users } from "lucide-react";
-import { collection, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 
 import { listenCollection, EventDoc, LinkDoc, PostDoc, setRsvp } from "@/lib/firestore";
 import { useAuth } from "@/lib/AuthContext";
@@ -63,13 +63,8 @@ export default function LandingPage() {
   }, []);
   useEffect(() => {
     if (!isFirebaseConfigured) return;
-    // Public landing: only fetch public posts to avoid query failure on unreadable docs.
-    const q = query(
-      collection(db, "posts"),
-      where("privacy", "in", ["public", null] as any),
-      orderBy("createdAt", "desc"),
-      limit(10)
-    );
+    // Public landing: fetch latest posts (reads are public per Firestore rules).
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(10));
     return onSnapshot(
       q,
       (snap) => setPosts(snap.docs.map((d) => ({ id: d.id, data: d.data() as PostDoc }))),

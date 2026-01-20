@@ -24,6 +24,7 @@ import { isFirebaseConfigured } from "@/lib/firebaseClient";
 import { getAllPartners, Partner, PartnerTier, PartnerType } from "@/lib/firebase/partnersService";
 import { useAuth } from "@/lib/AuthContext";
 import { PartnerCardSkeleton } from "@/app/components/PartnerCardSkeleton";
+import { reportIssue } from "@/lib/reportIssue";
 
 const TIER_LABEL: Record<PartnerTier, string> = {
   platinum: "Platinum",
@@ -362,7 +363,21 @@ export default function PartnersPage() {
 
         {error && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {error}
+            <div className="flex items-start justify-between gap-3">
+              <div>{error}</div>
+              <button
+                type="button"
+                className="underline font-semibold text-amber-900/80 whitespace-nowrap"
+                onClick={() =>
+                  reportIssue({
+                    message: error,
+                    context: { source: "PartnersPage", feature: "partners" },
+                  })
+                }
+              >
+                Report
+              </button>
+            </div>
           </div>
         )}
 
