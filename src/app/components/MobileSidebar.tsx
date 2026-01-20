@@ -14,6 +14,7 @@ import {
   Calendar,
   ChevronRight,
   Clock,
+  DollarSign,
   HelpCircle,
   Home,
   Info,
@@ -121,7 +122,7 @@ export function MobileSidebar({ isAuthenticated, userProfile, onNavigate, onLogo
     <>
       <button
         type="button"
-        className="md:hidden relative h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition grid place-items-center dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+        className="lg:hidden relative h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition grid place-items-center dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
         aria-label="Open menu"
         onClick={() => setOpen(true)}
       >
@@ -129,7 +130,7 @@ export function MobileSidebar({ isAuthenticated, userProfile, onNavigate, onLogo
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[320] md:hidden">
+        <div className="fixed inset-0 z-[320] lg:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} aria-hidden="true" />
 
           <div className="absolute left-0 top-0 bottom-0 w-[85vw] max-w-sm bg-white shadow-xl border-r border-slate-200 flex flex-col dark:bg-slate-950 dark:border-slate-800">
@@ -204,6 +205,9 @@ export function MobileSidebar({ isAuthenticated, userProfile, onNavigate, onLogo
                   <MenuItem icon={Calendar} label="Events" badge="12" onClick={() => handleNavigate("events")} iconColor="text-green-600" bgColor="hover:bg-green-50" />
                   <MenuItem icon={Video} label="Videos & Media" onClick={() => handleNavigate("videos")} iconColor="text-red-600" bgColor="hover:bg-red-50" />
                   <MenuItem icon={Award} label="Partners" onClick={() => handleNavigate("partners")} iconColor="text-amber-600" bgColor="hover:bg-amber-50" />
+                  {isAuthenticated && (
+                    <MenuItem icon={DollarSign} label="Payments" onClick={() => handleNavigate("payments")} iconColor="text-emerald-600" bgColor="hover:bg-emerald-50" />
+                  )}
                 </div>
               </div>
 
