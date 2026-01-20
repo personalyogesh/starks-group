@@ -155,6 +155,92 @@ export type CarouselSlideDoc = {
   createdBy: string;
 };
 
+// --- Finance / Payments ---
+export type TransactionType = "income" | "expense";
+export type PaymentMethod = "paypal" | "zelle" | "venmo" | "check" | "cash";
+export type TransactionStatus = "pending" | "completed" | "refunded" | "cancelled";
+export type TransactionPurpose = "membership" | "donation" | "event_fee" | "sponsor";
+
+export type TransactionDoc = {
+  type: TransactionType;
+  category: string;
+  subcategory?: string;
+  amount: number;
+  method: PaymentMethod;
+  status: TransactionStatus;
+  description?: string;
+
+  // Income specific
+  payerId?: string | null;
+  payerName?: string | null;
+  payerEmail?: string | null;
+  purpose?: TransactionPurpose | null;
+
+  // Expense specific
+  vendor?: string | null;
+  payee?: string | null;
+  invoiceNumber?: string | null;
+
+  // Common
+  receiptUrl?: string | null; // Prefer storing a storage path + fetching URL server-side; URL can be shareable.
+  notes?: string | null;
+  fiscalYear: number;
+  createdAt: any;
+  createdBy: string;
+  approvedBy?: string | null;
+  approvedAt?: any;
+  metadata?: Record<string, any>;
+};
+
+export type MembershipType = "annual" | "monthly" | "lifetime";
+export type MembershipPaymentStatus = "active" | "expired" | "cancelled";
+
+export type MembershipPaymentDoc = {
+  userId: string;
+  membershipType: MembershipType;
+  amount: number;
+  startDate: any;
+  endDate: any;
+  transactionId?: string | null;
+  autoRenew?: boolean;
+  status: MembershipPaymentStatus;
+  createdAt: any;
+};
+
+export type DonationDoc = {
+  donorId?: string | null;
+  donorName?: string | null;
+  donorEmail?: string | null; // If this collection is public-read, do NOT store emails here.
+  amount: number;
+  isAnonymous?: boolean;
+  taxDeductible?: boolean;
+  receiptSent?: boolean;
+  receiptUrl?: string | null;
+  purpose?: string | null;
+  transactionId?: string | null;
+  createdAt: any;
+};
+
+export type ExpenseCategoryDoc = {
+  name: string;
+  description?: string | null;
+  budgetLimit?: number | null;
+  spent?: number | null;
+  fiscalYear: number;
+  subcategories?: string[];
+  createdAt: any;
+  createdBy: string;
+};
+
+export type AuditLogDoc = {
+  action: string;
+  performedBy: string;
+  targetId?: string | null;
+  changes?: Record<string, any> | null;
+  ipAddress?: string | null;
+  timestamp: any;
+};
+
 function stripUndefined<T>(value: T): T {
   if (value === undefined) return null as any;
   if (value === null) return value;

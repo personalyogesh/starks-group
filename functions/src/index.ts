@@ -14,6 +14,11 @@ function requireAdminClaim(context: any) {
   }
 }
 
+function getCurrentFiscalYear(): number {
+  // Starks fiscal year = calendar year Jan 1 → Dec 31
+  return new Date().getFullYear();
+}
+
 export const adminBootstrapAdminClaim = onCall(async (request) => {
   const uid = requireAuth(request);
   // Bootstrap rule: user must already be marked admin in Firestore.
@@ -58,3 +63,75 @@ export const adminDeleteAuthUser = onCall(async (request) => {
   return { ok: true };
 });
 
+// Members record a payment they made (PayPal/Zelle/Venmo/etc).
+// This creates a `transactions` doc server-side (Admin SDK), so it will show up in the admin financial dashboard.
+export const createMemberIncomeTransaction = onCall(async (request) => {
+  const uid = requireAuth(request);
+  const data = request.data ?? {};
+
+  const amount = Number(data.amount ?? 0);
+  const method = String(data.method ?? "");
+  const purpose = String(data.purpose ?? "");
+  const category = String(data.category ?? "");
+  const subcategory = data.subcategory != null ? String(data.subcategory) : null;
+  const description = String(data.description ?? "");
+  const payerName = String(data.payerName ?? "");
+
+  if (!amount || amount <= 0) throw new HttpsError("invalid-argument", "amount must be > 0");
+  if (!["paypal", "zelle", "venmo", "check", "cash"].includes(method)) {
+    throw new HttpsError("invalid-argument", "invalid method");
+  }
+  if (!["membership", "donation", "event_fee", "sponsor"].includes(purpose)) {
+    throw new HttpsError("invalid-argument", "invalid purpose");
+  }
+  if (!category) throw new HttpsError("invalid-argument", "category is required");
+  if (!description) throw new HttpsError("invalid-argument", "description is required");
+
+  // Load user email if available (transactions are admin-only readable except the payer).
+  const user = await admin.auth().getUser(uid).catch(() => null);
+  const payerEmail = user?.email ?? null;
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const fiscalYear = getCurrentFiscalYear();
+
+  const txRef = await admin.firestore().collection("transactions").add({
+    type: "income",
+    category,
+    subcategory,
+    amount,
+    method,
+    status: "pending", // always pending until admin confirms
+    description,
+    payerId: uid,
+    payerName: payerName || null,
+    payerEmail,
+    purpose,
+    receiptUrl: null,
+    notes: null,
+    fiscalYear,
+    createdAt: now,
+    createdBy: uid,
+    approvedBy: null,
+    approvedAt: null,
+    metadata: data.metadata ?? null,
+  });
+
+  // Optional audit log (admin-only readable in rules)
+  await admin.firestore().collection("auditLogs").add({
+    action: "create_member_income_transaction",
+    performedBy: uid,
+    targetId: txRef.id,
+    changes: {
+      amount,
+      method,
+      purpose,
+      category,
+      subcategory,
+      description,
+    },
+    ipAddress: "N/A",
+    timestamp: now,
+  });
+
+  return { ok: true, transactionId: txRef.id };
+});

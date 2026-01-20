@@ -103,6 +103,7 @@ export default function UserDashboard() {
     if (page === "profile" || page === "edit-profile") return router.push("/profile");
     if (page === "settings") return router.push("/settings");
     if (page === "notifications") return router.push("/notifications");
+    if (page === "payments") return router.push("/payments");
     if (page === "login") return router.push("/login");
     if (page === "register") return router.push("/register");
     if (page === "members" || page === "community") return router.push("/members");

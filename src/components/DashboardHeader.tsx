@@ -12,7 +12,7 @@ import { UserAccountMenu } from "@/app/components/UserAccountMenu";
 import { MobileNav } from "@/app/components/MobileNav";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
-import { Award, Bell, Home, PlusCircle, Search } from "lucide-react";
+import { Award, Bell, DollarSign, Home, PlusCircle, Search } from "lucide-react";
 import { MobileSidebar } from "@/app/components/MobileSidebar";
 
 function initialsFromName(name?: string | null) {
@@ -25,6 +25,7 @@ function initialsFromName(name?: string | null) {
 function isActiveTopNav(pathname: string, href: string) {
   if (href === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
   if (href === "/partners") return pathname === "/partners" || pathname.startsWith("/partners/");
+  if (href === "/payments") return pathname === "/payments" || pathname.startsWith("/payments/");
   return pathname === href;
 }
 
@@ -106,6 +107,19 @@ export default function DashboardHeader() {
                 <Award className="size-4" />
                 Partners
               </button>
+              <button
+                type="button"
+                onClick={() => router.push("/payments")}
+                className={[
+                  "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition",
+                  isActiveTopNav(pathname, "/payments")
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
+                ].join(" ")}
+              >
+                <DollarSign className="size-4" />
+                Payments
+              </button>
             </nav>
           </div>
 
@@ -155,6 +169,7 @@ export default function DashboardHeader() {
                 if (page === "events") return router.push("/events");
                 if (page === "videos") return router.push("/videos");
                 if (page === "partners") return router.push("/partners");
+                if (page === "payments") return router.push("/payments");
                 if (page === "profile") return router.push("/profile");
                 if (page === "settings") return router.push("/settings");
                 if (page === "notifications") return router.push("/notifications");

@@ -84,6 +84,7 @@ export default function Navbar() {
                 if (page === "events") return window.location.assign("/events");
                 if (page === "videos") return window.location.assign("/videos");
                 if (page === "partners") return window.location.assign("/partners");
+                if (page === "payments") return window.location.assign("/payments");
                 if (page === "profile") return window.location.assign("/profile");
                 if (page === "settings") return window.location.assign("/settings");
                 if (page === "notifications") return window.location.assign("/notifications");

@@ -46,6 +46,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
     pathname === "/profile" ||
     pathname === "/notifications" ||
     pathname === "/settings" ||
+    pathname === "/payments" ||
     pathname === "/videos" ||
     pathname === "/admin" ||
     pathname.startsWith("/admin/");

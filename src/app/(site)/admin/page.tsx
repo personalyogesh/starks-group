@@ -191,7 +191,7 @@ export default function AdminPage() {
 
   return (
     <RequireAdmin>
-      <div className="space-y-8">
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         <Breadcrumbs
           items={[
             { label: "Dashboard", href: "/dashboard" },
@@ -258,6 +258,11 @@ export default function AdminPage() {
                 <Link href="/admin/partners">
                   <Button variant="outline" className="w-full">
                     🤝 Manage Partners
+                  </Button>
+                </Link>
+                <Link href="/admin/financial">
+                  <Button variant="outline" className="w-full">
+                    💰 Financial Dashboard
                   </Button>
                 </Link>
                 <Link href="/create-post">
