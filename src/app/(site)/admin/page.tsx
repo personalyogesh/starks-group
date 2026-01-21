@@ -270,12 +270,6 @@ export default function AdminPage() {
                     📝 Create Post
                   </Button>
                 </Link>
-                <Button variant="outline" className="w-full" disabled title="Coming soon">
-                  ✉️ Send Newsletter
-                </Button>
-                <Button variant="outline" className="w-full" disabled title="Coming soon">
-                  ⬇️ Export Data
-                </Button>
               </div>
             </CardBody>
           </Card>

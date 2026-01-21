@@ -444,9 +444,6 @@ export default function UserDashboard() {
                   >
                     <Users className="size-5 text-slate-700" />
                     <span>Community</span>
-                    <span className="ml-auto rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
-                      2.5K
-                    </span>
                   </button>
 
                   <button
@@ -717,72 +714,6 @@ export default function UserDashboard() {
 
           {/* Right sidebar */}
           <aside className="hidden lg:block space-y-4">
-            {/* Suggested Connections (for authenticated users) */}
-            {currentUser && (
-              <Card>
-                <CardBody>
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-extrabold flex items-center gap-2 text-slate-900">
-                        <Users className="size-5 text-blue-700" />
-                        Suggested
-                      </h3>
-                      <Button variant="outline" size="sm" className="text-xs" onClick={() => router.push("/members")}>
-                        See all
-                      </Button>
-                    </div>
-                    <div className="space-y-3">
-                      {[
-                        {
-                          name: "Rajesh Kumar",
-                          role: "Fast Bowler",
-                          avatar:
-                            "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=60",
-                        },
-                        {
-                          name: "Priya Singh",
-                          role: "All-rounder",
-                          avatar:
-                            "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=60",
-                        },
-                        {
-                          name: "Amit Patel",
-                          role: "Batsman",
-                          avatar:
-                            "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=60",
-                        },
-                      ].map((person) => (
-                        <div key={person.name} className="flex items-center gap-3">
-                          <Avatar className="size-10">
-                            <AvatarImage src={person.avatar} alt={person.name} />
-                            <AvatarFallback>{person.name[0]}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm truncate text-slate-900">{person.name}</p>
-                            <p className="text-xs text-slate-500">{person.role}</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs"
-                            onClick={() =>
-                              toast({
-                                kind: "info",
-                                title: "Coming soon",
-                                description: "Following members will be available soon.",
-                              })
-                            }
-                          >
-                            Follow
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-            )}
-
             {/* Latest Videos */}
             <Card>
               <CardBody>

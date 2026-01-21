@@ -256,12 +256,7 @@ export default function CreatePostPage() {
                       onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                     />
                   </label>
-                  <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50" disabled title="Coming soon">
-                    ✂️ Crop
-                  </button>
-                  <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50" disabled title="Coming soon">
-                    😊 Emoji
-                  </button>
+                  {/* Crop/emoji tools intentionally hidden until implemented (avoid dead buttons). */}
                 </div>
               </div>
 
