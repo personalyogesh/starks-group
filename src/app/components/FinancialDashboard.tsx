@@ -594,15 +594,7 @@ export default function FinancialDashboard() {
             <div className="font-bold text-lg">Quick Actions</div>
           </CardHeader>
           <CardBody>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Button variant="outline" className="justify-start" disabled title="Coming soon">
-                <Receipt className="size-5 mr-3" />
-                Record Expense (coming soon)
-              </Button>
-              <Button variant="outline" className="justify-start" disabled title="Coming soon">
-                <FileText className="size-5 mr-3" />
-                Generate Year-End Report (coming soon)
-              </Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Button variant="outline" className="justify-start" onClick={handleExportCSV}>
                 <Download className="size-5 mr-3" />
                 Export for CPA (CSV)

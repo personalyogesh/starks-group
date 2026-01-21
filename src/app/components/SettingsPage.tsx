@@ -8,6 +8,8 @@ import Button from "@/components/ui/Button";
 import { useAuth } from "@/lib/AuthContext";
 import { updateUserProfile } from "@/lib/firestore";
 import { useToast } from "@/components/ui/ToastProvider";
+import { auth, isFirebaseConfigured } from "@/lib/firebaseClient";
+import { sendPasswordResetEmail } from "firebase/auth";
 
 import {
   ArrowLeft,
@@ -202,19 +204,6 @@ export default function SettingsPage() {
                       <div className="text-sm text-slate-600">{user.email ?? "—"}</div>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      toast({
-                        kind: "info",
-                        title: "Coming soon",
-                        description: "Email change flow will be added soon.",
-                      })
-                    }
-                  >
-                    Change
-                  </Button>
                 </div>
 
                 <div className="flex items-center justify-between py-3">
@@ -227,55 +216,21 @@ export default function SettingsPage() {
                       <div className="text-sm text-slate-600">English (US)</div>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      toast({
-                        kind: "info",
-                        title: "Coming soon",
-                        description: "Language selection will be added soon.",
-                      })
-                    }
-                  >
-                    Change
-                  </Button>
                 </div>
               </div>
             </CardBody>
           </Card>
 
-          <Card className="border-rose-200 bg-rose-50">
+          <Card className="border-slate-200 bg-slate-50">
             <CardHeader>
-              <div className="text-lg font-extrabold text-rose-700">Danger Zone</div>
-              <div className="text-sm text-rose-700/80 mt-1">Irreversible actions — proceed with caution.</div>
+              <div className="text-lg font-extrabold text-slate-900">Account Support</div>
+              <div className="text-sm text-slate-600 mt-1">
+                For account deletion/deactivation, please contact support so we can verify your identity.
+              </div>
             </CardHeader>
             <CardBody>
-              <div className="grid gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    toast({
-                      kind: "info",
-                      title: "Coming soon",
-                      description: "Account deactivation will be implemented with admin tooling.",
-                    })
-                  }
-                >
-                  Deactivate Account
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    toast({
-                      kind: "info",
-                      title: "Coming soon",
-                      description: "Account deletion will be implemented with admin tooling.",
-                    })
-                  }
-                >
-                  Delete Account
-                </Button>
+              <div className="text-sm text-slate-700">
+                Email: <a className="underline font-semibold" href="mailto:starksgroup@starksgrp.org">starksgroup@starksgrp.org</a>
               </div>
             </CardBody>
           </Card>
@@ -413,46 +368,32 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <div className="font-semibold">Password</div>
-                    <div className="text-sm text-slate-600">Reset via email (coming soon)</div>
+                    <div className="text-sm text-slate-600">Reset via email</div>
                   </div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    toast({
-                      kind: "info",
-                      title: "Coming soon",
-                      description: "Password reset shortcut will be added soon.",
-                    })
-                  }
+                  disabled={!user?.email || !isFirebaseConfigured}
+                  onClick={async () => {
+                    if (!user?.email) return;
+                    try {
+                      await sendPasswordResetEmail(auth, user.email);
+                      toast({
+                        kind: "success",
+                        title: "Password reset email sent",
+                        description: `We sent a reset link to ${user.email}.`,
+                      });
+                    } catch (err: any) {
+                      toast({
+                        kind: "error",
+                        title: "Couldn’t send reset email",
+                        description: err?.message ?? "Please try again later.",
+                      });
+                    }
+                  }}
                 >
-                  Change
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <div className="size-10 bg-emerald-100 rounded-full flex items-center justify-center">
-                    <Smartphone className="size-5 text-emerald-700" />
-                  </div>
-                  <div>
-                    <div className="font-semibold">Two-Factor Authentication</div>
-                    <div className="text-sm text-slate-600">Not enabled</div>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    toast({
-                      kind: "info",
-                      title: "Coming soon",
-                      description: "2FA will be added later.",
-                    })
-                  }
-                >
-                  Enable
+                  Send reset email
                 </Button>
               </div>
               </div>

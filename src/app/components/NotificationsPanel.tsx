@@ -60,40 +60,8 @@ function NotifIcon({ type }: { type: NotifType }) {
   }
 }
 
-// Mock notifications for now (Firebase hookup later)
-const seed: Notif[] = [
-  {
-    id: "1",
-    type: "like",
-    fromUser: "John Doe",
-    fromAvatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=60",
-    message: "liked your post",
-    timestampMs: Date.now() - 1000 * 60 * 30,
-    read: false,
-    postId: "123",
-  },
-  {
-    id: "2",
-    type: "comment",
-    fromUser: "Jane Smith",
-    fromAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=60",
-    message: "commented on your post",
-    content: "Great achievement! Keep it up!",
-    timestampMs: Date.now() - 1000 * 60 * 60 * 2,
-    read: false,
-    postId: "123",
-  },
-  {
-    id: "3",
-    type: "event",
-    fromUser: "Starks Cricket",
-    message: "You have an upcoming event tomorrow",
-    content: "Cricket Tournament - Finals",
-    timestampMs: Date.now() - 1000 * 60 * 60 * 5,
-    read: true,
-    eventId: "456",
-  },
-];
+// Notifications will be hooked to Firebase later.
+const seed: Notif[] = [];
 
 export default function NotificationsPanel() {
   const [notifications, setNotifications] = useState<Notif[]>(seed);

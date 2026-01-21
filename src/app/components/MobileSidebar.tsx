@@ -201,8 +201,8 @@ export function MobileSidebar({ isAuthenticated, userProfile, onNavigate, onLogo
                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-3 mb-2">Explore</div>
                 <div className="space-y-1">
                   <MenuItem icon={Home} label="Community Feed" onClick={() => handleNavigate("dashboard")} iconColor="text-blue-600" bgColor="hover:bg-blue-50" />
-                  <MenuItem icon={Users} label="Members" badge="2.5K" onClick={() => handleNavigate("members")} iconColor="text-purple-600" bgColor="hover:bg-purple-50" />
-                  <MenuItem icon={Calendar} label="Events" badge="12" onClick={() => handleNavigate("events")} iconColor="text-green-600" bgColor="hover:bg-green-50" />
+                  <MenuItem icon={Users} label="Members" onClick={() => handleNavigate("members")} iconColor="text-purple-600" bgColor="hover:bg-purple-50" />
+                  <MenuItem icon={Calendar} label="Events" onClick={() => handleNavigate("events")} iconColor="text-green-600" bgColor="hover:bg-green-50" />
                   <MenuItem icon={Video} label="Videos & Media" onClick={() => handleNavigate("videos")} iconColor="text-red-600" bgColor="hover:bg-red-50" />
                   <MenuItem icon={Award} label="Partners" onClick={() => handleNavigate("partners")} iconColor="text-amber-600" bgColor="hover:bg-amber-50" />
                   {isAuthenticated && (

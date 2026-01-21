@@ -474,11 +474,7 @@ export default function ProfilePage() {
           <CardBody>
             <div className="rounded-3xl overflow-hidden border border-slate-200 bg-white">
               <div className="h-44 md:h-56 bg-gradient-to-r from-blue-500 to-indigo-600 relative">
-                <div className="absolute right-4 top-4">
-                  <Button variant="outline" type="button" disabled title="Coming soon">
-                    <span className="inline-flex items-center gap-2">📷 <span>Edit Cover</span></span>
-                  </Button>
-                </div>
+                {/* Cover editing hidden until implemented (avoid dead buttons). */}
               </div>
 
               <div className="px-6 pb-6">
@@ -849,7 +845,6 @@ function BadgeCard({ title, desc }: { title: string; desc: string }) {
     <div className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="font-extrabold text-slate-900">{title}</div>
       <div className="text-sm text-slate-600 mt-1">{desc}</div>
-      <div className="mt-3 text-xs text-slate-500">Coming soon</div>
     </div>
   );
 }
