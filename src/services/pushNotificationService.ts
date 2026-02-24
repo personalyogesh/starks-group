@@ -6,12 +6,9 @@ export async function requestNotificationPermission(): Promise<string | null> {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return null;
 
-    // TODO: Replace with Firebase Cloud Messaging token retrieval.
-    // Example:
-    // const messaging = getMessaging(app);
-    // const token = await getToken(messaging, { vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY });
-    // return token ?? null;
-    return `mock-fcm-token-${Date.now()}`;
+    // Production-safe behavior: do not return mock tokens.
+    // Return null until FCM is fully wired.
+    return null;
   } catch (error) {
     console.error("[pushNotificationService] Permission request failed:", error);
     return null;

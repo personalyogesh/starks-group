@@ -289,7 +289,7 @@ export function MobileSidebar({ isAuthenticated, userProfile, onNavigate, onLogo
             {/* Footer */}
             <div className="p-4 border-t bg-slate-50">
               <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
-                <span>© 2026 Starks Cricket</span>
+                <span>© {new Date().getFullYear()} Starks Cricket</span>
                 <span>•</span>
                 <span>v1.0.0</span>
               </div>

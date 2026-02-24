@@ -23,11 +23,10 @@ import { db, isFirebaseConfigured } from "@/lib/firebaseClient";
 import {
   EventDoc,
   PostDoc,
-  registerForEventOptIn,
-  unregisterFromEventOptIn,
   VideoDoc,
   listenCollection,
 } from "@/lib/firestore";
+import { registerForEvent, unregisterFromEvent } from "@/lib/firebase/eventsService";
 
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -63,6 +62,10 @@ function withinDays(ts: any, days: number) {
   const d = tsToDate(ts);
   if (!d) return false;
   return Date.now() - d.getTime() <= days * 24 * 60 * 60 * 1000;
+}
+
+function eventDate(data: EventDoc): Date | null {
+  return tsToDate(data?.dateTime) ?? tsToDate((data as any)?.date);
 }
 
 export default function UserDashboard() {
@@ -228,6 +231,21 @@ export default function UserDashboard() {
     });
   }, [visiblePosts, search]);
 
+  const upcomingEventsPreview = useMemo(() => {
+    const now = Date.now();
+    return events
+      .filter(({ data }) => {
+        const d = eventDate(data);
+        return Boolean(d && d.getTime() >= now);
+      })
+      .sort((a, b) => {
+        const ad = eventDate(a.data)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bd = eventDate(b.data)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return ad - bd;
+      })
+      .slice(0, 3);
+  }, [events]);
+
   const postsThisWeek = useMemo(() => {
     if (!uid) return 0;
     return visiblePosts.filter((p) => p.data.createdBy === uid && withinDays(p.data.createdAt, 7)).length;
@@ -251,10 +269,10 @@ export default function UserDashboard() {
       if (isReg) {
         const ok = window.confirm("Unregister from this event?");
         if (!ok) return;
-        await unregisterFromEventOptIn(eventId, uid);
+        await unregisterFromEvent(eventId, uid);
         toast({ kind: "success", title: "Unregistered", description: "You’ve been removed from the event." });
       } else {
-        await registerForEventOptIn(eventId, uid);
+        await registerForEvent(eventId, uid);
         toast({ kind: "success", title: "Registered", description: "You’re registered for this event." });
       }
     } catch (err: any) {
@@ -517,8 +535,8 @@ export default function UserDashboard() {
                   </h3>
 
                   <div className="space-y-3">
-                    {events.slice(0, 3).map(({ id, data }) => {
-                      const d = data?.dateTime ? new Date(data.dateTime) : null;
+                    {upcomingEventsPreview.map(({ id, data }) => {
+                      const d = eventDate(data);
                       const month = d && !Number.isNaN(d.getTime())
                         ? d.toLocaleDateString(undefined, { month: "short" }).toUpperCase()
                         : "—";
@@ -540,7 +558,9 @@ export default function UserDashboard() {
                               <h4 className="font-semibold text-sm group-hover:text-blue-700 transition-colors truncate">
                                 {data.title}
                               </h4>
-                              <p className="text-xs text-slate-500 truncate">{data.dateTime || "—"}</p>
+                              <p className="text-xs text-slate-500 truncate">
+                                {d ? d.toLocaleString() : data.dateTime || "—"}
+                              </p>
                               {eventRegistered[id] && (
                                 <span className="inline-flex mt-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
                                   ✓ Registered
@@ -551,6 +571,9 @@ export default function UserDashboard() {
                         </button>
                       );
                     })}
+                    {upcomingEventsPreview.length === 0 && (
+                      <p className="text-sm text-slate-600">No upcoming events.</p>
+                    )}
                   </div>
 
                   <Button
@@ -786,9 +809,9 @@ export default function UserDashboard() {
                         <div className="size-8 bg-blue-100 rounded-full flex items-center justify-center">
                           <Users className="size-4 text-blue-700" />
                         </div>
-                        <span className="text-sm text-slate-600">Active Members</span>
+                        <span className="text-sm text-slate-600">Your Connections</span>
                       </div>
-                      <span className="font-extrabold text-blue-700">2,547</span>
+                      <span className="font-extrabold text-blue-700">{connections}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -832,7 +855,7 @@ export default function UserDashboard() {
                   Terms
                 </Link>
               </div>
-              <p className="text-slate-400">© 2026 Starks Cricket Club</p>
+              <p className="text-slate-400">© {new Date().getFullYear()} Starks Cricket Club</p>
             </div>
           </aside>
         </div>

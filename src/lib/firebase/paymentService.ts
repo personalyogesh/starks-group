@@ -490,40 +490,6 @@ export async function createMemberIncomeTransaction(args: {
   return String((res.data as any)?.transactionId ?? "");
 }
 
-export async function sendFinanceNotifications(args: {
-  template: "payment-request" | "payment-reminder" | "refund-info" | "refund-processed" | "custom";
-  recipients: Array<{
-    userId: string;
-    email: string;
-    name: string;
-    subject: string;
-    message: string;
-    sendEmail: boolean;
-    sendPush?: boolean;
-    pushToken?: string;
-  }>;
-}) {
-  await assertFunctionsConfigured();
-  const fn = httpsCallable<
-    {
-      template: string;
-      recipients: Array<{
-        userId: string;
-        email: string;
-        name: string;
-        subject: string;
-        message: string;
-        sendEmail: boolean;
-        sendPush?: boolean;
-        pushToken?: string;
-      }>;
-    },
-    { ok: true; sent: number; failed: number; failures?: Array<{ email: string; error: string }> }
-  >(functions, "sendFinanceNotifications");
-  const res = await fn(stripUndefined(args) as any);
-  return res.data;
-}
-
 // Export for CPA
 export async function exportTransactionsToCSV(fiscalYear: number): Promise<string> {
   const transactions = await getTransactions({ fiscalYear });

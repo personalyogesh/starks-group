@@ -3,11 +3,18 @@
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { useAuth } from "@/lib/AuthContext";
 import { listenCollection, createEvent, deleteEvent, EventDoc } from "@/lib/firestore";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isFirebaseConfigured } from "@/lib/firebaseClient";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+
+function toEventDate(value: any): Date | null {
+  if (!value) return null;
+  if (typeof value?.toDate === "function") return value.toDate();
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 export default function AdminEventsPage() {
   const { currentUser } = useAuth();
@@ -23,6 +30,28 @@ export default function AdminEventsPage() {
     if (!isFirebaseConfigured) return;
     return listenCollection<EventDoc>("events", setEvents);
   }, []);
+
+  const upcomingEvents = useMemo(() => {
+    const now = Date.now();
+    return events
+      .filter(({ data }) => {
+        const d = toEventDate(data?.dateTime ?? (data as any)?.date);
+        return Boolean(d && d.getTime() >= now);
+      })
+      .sort((a, b) => {
+        const ad = toEventDate(a.data?.dateTime ?? (a.data as any)?.date)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bd = toEventDate(b.data?.dateTime ?? (b.data as any)?.date)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return ad - bd;
+      });
+  }, [events]);
+
+  const allEventsSorted = useMemo(() => {
+    return [...events].sort((a, b) => {
+      const ad = toEventDate(a.data?.dateTime ?? (a.data as any)?.date)?.getTime() ?? 0;
+      const bd = toEventDate(b.data?.dateTime ?? (b.data as any)?.date)?.getTime() ?? 0;
+      return bd - ad;
+    });
+  }, [events]);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -113,16 +142,16 @@ export default function AdminEventsPage() {
         <Card>
           <CardHeader>
             <div className="font-bold">Upcoming</div>
-            <div className="text-sm text-slate-600 mt-1">Your current events in the feed.</div>
+            <div className="text-sm text-slate-600 mt-1">Future events shown to members/public feeds.</div>
           </CardHeader>
           <CardBody>
-            {events.length === 0 ? (
+            {upcomingEvents.length === 0 ? (
               <p className="text-slate-600">
-                {isFirebaseConfigured ? "No events yet." : "Connect Firebase to load events."}
+                {isFirebaseConfigured ? "No upcoming events." : "Connect Firebase to load events."}
               </p>
             ) : (
               <div className="grid gap-3">
-                {events.map(({ id, data }) => (
+                {upcomingEvents.map(({ id, data }) => (
                   <div
                     key={id}
                     className="rounded-2xl border border-slate-200 bg-white p-4 flex items-start justify-between gap-4"
@@ -145,6 +174,57 @@ export default function AdminEventsPage() {
                     </Button>
                   </div>
                 ))}
+              </div>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="font-bold">All Events (including past)</div>
+            <div className="text-sm text-slate-600 mt-1">Admin-only historical view for auditing and cleanup.</div>
+          </CardHeader>
+          <CardBody>
+            {allEventsSorted.length === 0 ? (
+              <p className="text-slate-600">
+                {isFirebaseConfigured ? "No events yet." : "Connect Firebase to load events."}
+              </p>
+            ) : (
+              <div className="grid gap-3">
+                {allEventsSorted.map(({ id, data }) => {
+                  const date = toEventDate(data?.dateTime ?? (data as any)?.date);
+                  const isPast = Boolean(date && date.getTime() < Date.now());
+                  return (
+                    <div
+                      key={id}
+                      className="rounded-2xl border border-slate-200 bg-white p-4 flex items-start justify-between gap-4"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-semibold">{data.title}</div>
+                          {isPast && (
+                            <span className="inline-flex rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                              Past
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-slate-600 mt-1">
+                          {data.dateTime} · {data.location}
+                        </div>
+                        {data.description && (
+                          <p className="text-sm text-slate-700 mt-2">{data.description}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={() => deleteEvent(id)}
+                        disabled={!isFirebaseConfigured}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardBody>

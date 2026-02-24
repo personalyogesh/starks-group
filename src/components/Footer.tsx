@@ -174,7 +174,7 @@ export default function Footer() {
       <div className="border-t border-white/10">
         <Container>
           <div className="py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-white/60">
-            <div>© 2026 Starks Cricket Club. All rights reserved.</div>
+            <div>© {new Date().getFullYear()} Starks Cricket Club. All rights reserved.</div>
 
             <div className="flex items-center gap-6">
               <div className="hidden md:flex items-center gap-3">

@@ -32,17 +32,11 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendFinanceNotifications = exports.submitIssueReport = exports.createMemberIncomeTransaction = exports.adminDeleteAuthUser = exports.adminSetUserRole = exports.adminBootstrapAdminClaim = void 0;
+exports.submitIssueReport = exports.createMemberIncomeTransaction = exports.adminDeleteAuthUser = exports.adminSetUserRole = exports.adminBootstrapAdminClaim = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https_1 = require("firebase-functions/v2/https");
-const mail_1 = __importDefault(require("@sendgrid/mail"));
-const params_1 = require("firebase-functions/params");
 admin.initializeApp();
-const sendGridApiKeySecret = (0, params_1.defineSecret)("SENDGRID_API_KEY");
 function requireAuth(context) {
     if (!context.auth?.uid)
         throw new https_1.HttpsError("unauthenticated", "Login required.");
@@ -192,78 +186,4 @@ exports.submitIssueReport = (0, https_1.onCall)(async (request) => {
         source: "cloud-function",
     });
     return { ok: true, reportId: reportRef.id };
-});
-exports.sendFinanceNotifications = (0, https_1.onCall)({ secrets: [sendGridApiKeySecret] }, async (request) => {
-    const uid = requireAuth(request);
-    requireAdminClaim(request);
-    const data = request.data ?? {};
-    const template = String(data.template ?? "custom");
-    const recipients = Array.isArray(data.recipients) ? data.recipients : [];
-    if (!recipients.length) {
-        throw new https_1.HttpsError("invalid-argument", "recipients are required");
-    }
-    if (recipients.length > 300) {
-        throw new https_1.HttpsError("invalid-argument", "Too many recipients in one request");
-    }
-    const sendGridApiKey = sendGridApiKeySecret.value();
-    if (!sendGridApiKey) {
-        throw new https_1.HttpsError("failed-precondition", "SENDGRID_API_KEY is not configured in Cloud Functions environment.");
-    }
-    const fromEmail = process.env.SENDGRID_FROM_EMAIL || "starksgroup@starksgrp.org";
-    const fromName = process.env.SENDGRID_FROM_NAME || "Starks Group";
-    mail_1.default.setApiKey(sendGridApiKey);
-    const emailTargets = recipients.filter((r) => Boolean(r?.sendEmail && r?.email));
-    let sent = 0;
-    const failures = [];
-    for (const row of emailTargets) {
-        const toEmail = String(row.email ?? "").trim();
-        const toName = String(row.name ?? "").trim();
-        const subject = String(row.subject ?? "").trim();
-        const message = String(row.message ?? "").trim();
-        if (!toEmail || !subject || !message) {
-            failures.push({ email: toEmail || "unknown", error: "Missing email/subject/message" });
-            continue;
-        }
-        const html = message
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/\n/g, "<br />");
-        try {
-            await mail_1.default.send({
-                to: toName ? { email: toEmail, name: toName } : toEmail,
-                from: { email: fromEmail, name: fromName },
-                subject,
-                text: message,
-                html: `<div style="font-family:Arial,sans-serif;line-height:1.6;">${html}</div>`,
-            });
-            sent += 1;
-        }
-        catch (err) {
-            failures.push({
-                email: toEmail,
-                error: String(err?.message ?? "send failed"),
-            });
-        }
-    }
-    await admin.firestore().collection("auditLogs").add({
-        action: "send_finance_notifications",
-        performedBy: uid,
-        targetId: null,
-        changes: {
-            template,
-            requestedRecipients: recipients.length,
-            emailTargets: emailTargets.length,
-            sent,
-            failed: failures.length,
-        },
-        ipAddress: "N/A",
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    });
-    return {
-        ok: true,
-        sent,
-        failed: failures.length,
-        failures: failures.slice(0, 25),
-    };
 });
