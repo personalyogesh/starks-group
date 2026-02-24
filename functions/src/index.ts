@@ -1,10 +1,7 @@
 import * as admin from "firebase-admin";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import sgMail from "@sendgrid/mail";
-import { defineSecret } from "firebase-functions/params";
 
 admin.initializeApp();
-const sendGridApiKeySecret = defineSecret("SENDGRID_API_KEY");
 
 function requireAuth(context: any) {
   if (!context.auth?.uid) throw new HttpsError("unauthenticated", "Login required.");
@@ -174,88 +171,3 @@ export const submitIssueReport = onCall(async (request) => {
   return { ok: true, reportId: reportRef.id };
 });
 
-export const sendFinanceNotifications = onCall({ secrets: [sendGridApiKeySecret] }, async (request) => {
-  const uid = requireAuth(request);
-  requireAdminClaim(request);
-
-  const data = request.data ?? {};
-  const template = String(data.template ?? "custom");
-  const recipients = Array.isArray(data.recipients) ? data.recipients : [];
-  if (!recipients.length) {
-    throw new HttpsError("invalid-argument", "recipients are required");
-  }
-  if (recipients.length > 300) {
-    throw new HttpsError("invalid-argument", "Too many recipients in one request");
-  }
-
-  const sendGridApiKey = sendGridApiKeySecret.value();
-  if (!sendGridApiKey) {
-    throw new HttpsError(
-      "failed-precondition",
-      "SENDGRID_API_KEY is not configured in Cloud Functions environment."
-    );
-  }
-
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL || "starksgroup@starksgrp.org";
-  const fromName = process.env.SENDGRID_FROM_NAME || "Starks Group";
-  sgMail.setApiKey(sendGridApiKey);
-
-  const emailTargets = recipients.filter((r: any) => Boolean(r?.sendEmail && r?.email));
-  let sent = 0;
-  const failures: Array<{ email: string; error: string }> = [];
-
-  for (const row of emailTargets) {
-    const toEmail = String(row.email ?? "").trim();
-    const toName = String(row.name ?? "").trim();
-    const subject = String(row.subject ?? "").trim();
-    const message = String(row.message ?? "").trim();
-    if (!toEmail || !subject || !message) {
-      failures.push({ email: toEmail || "unknown", error: "Missing email/subject/message" });
-      continue;
-    }
-
-    const html = message
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/\n/g, "<br />");
-
-    try {
-      await sgMail.send({
-        to: toName ? { email: toEmail, name: toName } : toEmail,
-        from: { email: fromEmail, name: fromName },
-        subject,
-        text: message,
-        html: `<div style="font-family:Arial,sans-serif;line-height:1.6;">${html}</div>`,
-      });
-      sent += 1;
-    } catch (err: any) {
-      failures.push({
-        email: toEmail,
-        error: String(err?.message ?? "send failed"),
-      });
-    }
-  }
-
-  await admin.firestore().collection("auditLogs").add({
-    action: "send_finance_notifications",
-    performedBy: uid,
-    targetId: null,
-    changes: {
-      template,
-      requestedRecipients: recipients.length,
-      emailTargets: emailTargets.length,
-      sent,
-      failed: failures.length,
-    },
-    ipAddress: "N/A",
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-  });
-
-  return {
-    ok: true,
-    sent,
-    failed: failures.length,
-    failures: failures.slice(0, 25),
-  };
-});

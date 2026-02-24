@@ -16,11 +16,11 @@ import {
   Smartphone,
   Users,
 } from "lucide-react";
-import { collection, getDocs } from "firebase/firestore";
+import { addDoc, collection, getDocs, serverTimestamp } from "firebase/firestore";
 
 import { useToast } from "@/components/ui/ToastProvider";
 import { db, isFirebaseConfigured } from "@/lib/firebaseClient";
-import { sendFinanceNotifications } from "@/lib/firebase/paymentService";
+import { fetchPaymentConfig } from "@/lib/config/paymentConfig";
 
 interface User {
   id: string;
@@ -53,9 +53,10 @@ interface NotificationCenterProps {
 
 export function NotificationCenter({ navigateTo, currentUser }: NotificationCenterProps) {
   const { toast } = useToast();
+  const currentYear = new Date().getFullYear();
+  const defaultDueDate = `${currentYear}-03-31`;
   const DEFAULT_PAYPAL_LINK = "https://paypal.me/starksgroup";
   const DEFAULT_ZELLE_DETAILS = "starksgroup@starksgrp.org";
-  const FORCE_DRAFT_MODE = true;
 
   const [users, setUsers] = useState<User[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<NotificationTemplateId>("payment-request");
@@ -63,14 +64,14 @@ export function NotificationCenter({ navigateTo, currentUser }: NotificationCent
   const [isSending, setIsSending] = useState(false);
 
   const [formData, setFormData] = useState({
-    subject: "2026 Starks Cricket Registration Fee - Action Required",
-    amount: 150,
-    dueDate: "2026-03-31",
+    subject: `${currentYear} Starks Cricket Registration Fee - Action Required`,
+    amount: 0,
+    dueDate: defaultDueDate,
     paypalLink: DEFAULT_PAYPAL_LINK,
     zelleDetails: DEFAULT_ZELLE_DETAILS,
     message: "",
     sendEmail: true,
-    sendPush: true,
+    sendPush: false,
     sendToAll: true,
     selectedUserIds: [] as string[],
   });
@@ -87,15 +88,24 @@ export function NotificationCenter({ navigateTo, currentUser }: NotificationCent
     void loadUsers();
   }, []);
 
+  useEffect(() => {
+    void loadPaymentDefaults();
+  }, []);
+
+  const seasonYear = useMemo(() => {
+    const parsed = new Date(formData.dueDate);
+    return Number.isNaN(parsed.getTime()) ? currentYear : parsed.getFullYear();
+  }, [formData.dueDate, currentYear]);
+
   const templates: Record<NotificationTemplateId, NotificationTemplate> = useMemo(
     () => ({
       "payment-request": {
         id: "payment-request",
         type: "payment-request",
-        subject: "2026 Starks Cricket Registration Fee - Action Required",
+        subject: `${seasonYear} Starks Cricket Registration Fee - Action Required`,
         body: `Dear {name},
 
-We hope this message finds you well! As we prepare for an exciting 2026 season with Starks Cricket, we kindly request your registration fee payment.
+We hope this message finds you well! As we prepare for an exciting ${seasonYear} season with Starks Cricket, we kindly request your registration fee payment.
 
 💰 Registration Fee: ${formData.amount}
 📅 Payment Due Date: {dueDate}
@@ -103,7 +113,7 @@ We hope this message finds you well! As we prepare for an exciting 2026 season w
 🏦 Zelle Details: {zelleDetails}
 
 IMPORTANT REFUND POLICY:
-All registration fees will be held to cover operational expenses for the 2026 season. These include:
+All registration fees will be held to cover operational expenses for the ${seasonYear} season. These include:
 - Equipment and playing supplies
 - Ground/venue bookings
 - Tournament and umpiring assignment fees
@@ -113,11 +123,11 @@ All registration fees will be held to cover operational expenses for the 2026 se
 At year-end, once all expenses are settled, any remaining funds will be refunded proportionally to all paid members.
 We will share a detailed expense breakdown report along with refund communication.
 
-✅ Expected refund processing: December 2026
+✅ Expected refund processing: December ${seasonYear}
 ✅ You'll receive email notification when refunds are processed
 ✅ Refund amount depends on total expenses vs. collected fees
 
-Please complete your payment by {dueDate} to secure your spot for the 2026 season.
+Please complete your payment by {dueDate} to secure your spot for the ${seasonYear} season.
 
 If you have any questions, please contact us at starksgroup@starksgrp.org
 
@@ -137,17 +147,17 @@ Starks Group`,
       "payment-reminder": {
         id: "payment-reminder",
         type: "payment-reminder",
-        subject: "Reminder: 2026 Registration Fee Payment Pending",
+        subject: `Reminder: ${seasonYear} Registration Fee Payment Pending`,
         body: `Dear {name},
 
-This is a friendly reminder that your 2026 Starks Cricket registration fee payment is still pending.
+This is a friendly reminder that your ${seasonYear} Starks Cricket registration fee payment is still pending.
 
 💰 Amount Due: ${formData.amount}
 📅 Due Date: {dueDate}
 🔗 PayPal Link: {paypalLink}
 🏦 Zelle Details: {zelleDetails}
 
-Don't miss out on the 2026 season! Please complete your payment at your earliest convenience.
+Don't miss out on the ${seasonYear} season! Please complete your payment at your earliest convenience.
 
 Remember: Refunds will be processed at year-end after all expenses are covered.
 You will receive a detailed expense summary when refunds are processed.
@@ -168,23 +178,23 @@ Starks Group`,
       "refund-info": {
         id: "refund-info",
         type: "refund-info",
-        subject: "Starks Cricket 2026 - Refund Policy Information",
+        subject: `Starks Cricket ${seasonYear} - Refund Policy Information`,
         body: `Dear {name},
 
-Thank you for your 2026 registration fee payment! This email confirms our refund policy for the season.
+Thank you for your ${seasonYear} registration fee payment! This email confirms our refund policy for the season.
 
 REFUND POLICY DETAILS:
-• All registration fees are used to cover 2026 operational expenses
+• All registration fees are used to cover ${seasonYear} operational expenses
 • Expenses include: equipment, venue rentals, tournament fees, insurance, etc.
-• At year-end (December 2026), we will calculate total expenses vs. collected fees
+• At year-end (December ${seasonYear}), we will calculate total expenses vs. collected fees
 • If there are remaining funds, refunds will be processed proportionally
 • You will receive email notification with refund details
 
 TIMELINE:
-✅ Now - Mid 2026: Registration fees collected
-✅ Throughout 2026: Operational expenses paid
-✅ December 2026: Final expense calculation
-✅ End of December 2026: Refunds processed (if applicable)
+✅ Now - Mid ${seasonYear}: Registration fees collected
+✅ Throughout ${seasonYear}: Operational expenses paid
+✅ December ${seasonYear}: Final expense calculation
+✅ End of December ${seasonYear}: Refunds processed (if applicable)
 
 We are committed to transparency and will share expense reports with all members.
 
@@ -202,10 +212,10 @@ Starks Group`,
       "refund-processed": {
         id: "refund-processed",
         type: "refund-processed",
-        subject: "🎉 Starks Cricket 2026 - Refund Processed!",
+        subject: `🎉 Starks Cricket ${seasonYear} - Refund Processed!`,
         body: `Dear {name},
 
-Great news! We've completed our 2026 expense reconciliation and processed your refund.
+Great news! We've completed our ${seasonYear} expense reconciliation and processed your refund.
 
 REFUND DETAILS:
 💰 Refund Amount: {refundAmount}
@@ -292,7 +302,7 @@ Starks Group`,
         const candidates = [toDate(data?.startDate), toDate(data?.createdAt), toDate(data?.endDate)].filter(
           Boolean
         ) as Date[];
-        const relevantDate = candidates.find((d) => d.getFullYear() === 2026) ?? candidates[0];
+        const relevantDate = candidates.find((d) => d.getFullYear() === seasonYear) ?? candidates[0];
         if (!relevantDate) return;
         if (!paidUserMap.has(userId)) {
           paidUserMap.set(userId, relevantDate.toISOString().split("T")[0]);
@@ -359,6 +369,28 @@ Starks Group`,
     }
   }
 
+  async function loadPaymentDefaults() {
+    try {
+      const cfg = await fetchPaymentConfig();
+      const annualPrice = Number(cfg?.membershipPlans?.annual?.price ?? 0);
+      const paypalLink =
+        String(cfg?.paymentMethods?.paypal?.link ?? "").trim() ||
+        String(cfg?.paymentMethods?.paypal?.email ?? "").trim() ||
+        DEFAULT_PAYPAL_LINK;
+      const zelleDetails =
+        String(cfg?.paymentMethods?.zelle?.email ?? "").trim() || DEFAULT_ZELLE_DETAILS;
+
+      setFormData((prev) => ({
+        ...prev,
+        amount: annualPrice > 0 ? annualPrice : prev.amount,
+        paypalLink,
+        zelleDetails,
+      }));
+    } catch {
+      // Keep existing defaults if remote config is unavailable.
+    }
+  }
+
   function handleTemplateChange(templateId: NotificationTemplateId) {
     setSelectedTemplate(templateId);
     const template = templates[templateId];
@@ -380,12 +412,12 @@ Starks Group`,
       .replaceAll("{zelleDetails}", zelleDetails || "Not provided")
       .replaceAll("{dueDate}", formData.dueDate)
       .replaceAll("{amount}", String(formData.amount))
-      .replaceAll("{refundAmount}", "$0.00")
+      .replaceAll("{refundAmount}", "TBD after year-end reconciliation")
       .replaceAll("{processedDate}", new Date().toISOString().split("T")[0])
       .replaceAll("{paymentMethod}", "Original payment method")
-      .replaceAll("{totalCollected}", "$0.00")
-      .replaceAll("{totalExpenses}", "$0.00")
-      .replaceAll("{totalRefunds}", "$0.00");
+      .replaceAll("{totalCollected}", "TBD")
+      .replaceAll("{totalExpenses}", "TBD")
+      .replaceAll("{totalRefunds}", "TBD");
   }
 
   function openMailDraft(to: string, subject: string, body: string) {
@@ -417,6 +449,36 @@ Starks Group`,
         ? [...prev.selectedUserIds, userId]
         : prev.selectedUserIds.filter((id) => id !== userId),
     }));
+  }
+
+  async function logManualNotificationActivity(args: {
+    mode: "draft-single" | "draft-csv";
+    recipientCount: number;
+    emailCount: number;
+    pushCount: number;
+    template: NotificationTemplateId;
+    notes?: string;
+  }) {
+    if (!isFirebaseConfigured || !db) return;
+    try {
+      await addDoc(collection(db, "auditLogs"), {
+        action: "notification_prepared",
+        performedBy: currentUser?.uid ?? "unknown",
+        targetId: null,
+        changes: {
+          mode: args.mode,
+          template: args.template,
+          recipientCount: args.recipientCount,
+          emailCount: args.emailCount,
+          pushCount: args.pushCount,
+          notes: args.notes ?? "",
+        },
+        ipAddress: "N/A",
+        timestamp: serverTimestamp(),
+      });
+    } catch (err) {
+      console.warn("Failed to write audit log for notification activity", err);
+    }
   }
 
   async function handleSendNotifications() {
@@ -513,9 +575,17 @@ Starks Group`,
       return;
     }
 
-    if (FORCE_DRAFT_MODE) {
+    try {
       if (emailPayload.length === 1) {
         openMailDraft(emailPayload[0].email, emailPayload[0].subject, emailPayload[0].message);
+        await logManualNotificationActivity({
+          mode: "draft-single",
+          recipientCount: recipients.length,
+          emailCount: emailPayload.length,
+          pushCount: pushPayload.length,
+          template: selectedTemplate,
+          notes: "Opened single-recipient draft from notification center.",
+        });
       } else if (emailPayload.length > 1) {
         exportEmailDraftsCsv(
           emailPayload.map((p) => ({
@@ -524,6 +594,14 @@ Starks Group`,
             message: p.message,
           }))
         );
+        await logManualNotificationActivity({
+          mode: "draft-csv",
+          recipientCount: recipients.length,
+          emailCount: emailPayload.length,
+          pushCount: pushPayload.length,
+          template: selectedTemplate,
+          notes: "Exported multi-recipient email draft CSV from notification center.",
+        });
       }
 
       toast({
@@ -535,69 +613,6 @@ Starks Group`,
             : emailPayload.length === 1
             ? `Opened draft for ${emailPayload[0].email}.`
             : "No email drafts generated.",
-      });
-      setIsSending(false);
-      return;
-    }
-
-    try {
-      const sendResult =
-        emailPayload.length > 0 || pushPayload.length > 0
-          ? await sendFinanceNotifications({
-              template: selectedTemplate,
-              recipients: payload,
-            })
-          : { ok: true, sent: 0, failed: 0 };
-
-      toast({
-        kind: "success",
-        title: "Notifications sent",
-        description:
-          sendResult.failed > 0
-            ? `Sent ${sendResult.sent} successfully, ${sendResult.failed} failed.`
-            : `Sent ${sendResult.sent} notification email(s) successfully.`,
-      });
-
-      // TODO: Persist audit log in Firebase:
-      // await logNotification({
-      //   sentBy: currentUser?.uid ?? "",
-      //   sentAt: new Date().toISOString(),
-      //   recipientCount: payload.length,
-      //   template: selectedTemplate,
-      // });
-      console.log("Notification payload", {
-        sentBy: currentUser?.uid ?? "unknown",
-        payload,
-      });
-    } catch (error) {
-      console.error("Failed to send notifications:", error);
-      const firebaseMessage =
-        typeof (error as any)?.message === "string"
-          ? (error as any).message
-          : typeof (error as any)?.details === "string"
-          ? (error as any).details
-          : "";
-
-      // Fallback mode for release: no backend provider required.
-      if (emailPayload.length === 1) {
-        openMailDraft(emailPayload[0].email, emailPayload[0].subject, emailPayload[0].message);
-      } else if (emailPayload.length > 1) {
-        exportEmailDraftsCsv(
-          emailPayload.map((p) => ({
-            email: p.email,
-            subject: p.subject,
-            message: p.message,
-          }))
-        );
-      }
-
-      toast({
-        kind: "info",
-        title: "Draft mode enabled",
-        description:
-          emailPayload.length > 1
-            ? `Backend send unavailable (${firebaseMessage || "no provider"}). Exported ${emailPayload.length} email drafts CSV.`
-            : `Backend send unavailable (${firebaseMessage || "no provider"}). Opened email draft.`,
       });
     } finally {
       setIsSending(false);
@@ -1095,12 +1110,12 @@ Starks Group`,
             <div className="bg-green-50 rounded-xl border border-green-200 p-6">
               <h3 className="font-bold text-green-900 mb-3">💰 Refund Policy</h3>
               <div className="space-y-2 text-sm text-green-800">
-                <p className="font-medium">2026 Season:</p>
+                <p className="font-medium">{seasonYear} Season:</p>
                 <ul className="space-y-1 ml-4">
                   <li>• Fees collected for operational expenses</li>
                   <li>• Refunds processed at year-end</li>
                   <li>• Based on remaining funds after expenses</li>
-                  <li>• Expected: December 2026</li>
+                  <li>• Expected: December {seasonYear}</li>
                 </ul>
               </div>
             </div>

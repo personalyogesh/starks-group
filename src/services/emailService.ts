@@ -19,6 +19,12 @@ export interface PaymentNotificationParams {
   dueDate: string;
   paymentLink: string;
   template: NotificationTemplateType;
+  seasonYear?: number;
+  refundAmount?: number | string;
+  processedDate?: string;
+  totalCollected?: number | string;
+  totalExpenses?: number | string;
+  totalRefunds?: number | string;
 }
 
 const formatDate = (date: string): string => {
@@ -31,18 +37,45 @@ const formatDate = (date: string): string => {
   });
 };
 
+const resolveSeasonYear = (params: Pick<PaymentNotificationParams, "seasonYear" | "dueDate">): number => {
+  if (typeof params.seasonYear === "number" && Number.isFinite(params.seasonYear)) return params.seasonYear;
+  const parsed = new Date(params.dueDate);
+  return Number.isNaN(parsed.getTime()) ? new Date().getFullYear() : parsed.getFullYear();
+};
+
+const formatMoneyLike = (value?: number | string): string => {
+  if (value === undefined || value === null || value === "") return "TBD";
+  if (typeof value === "number" && Number.isFinite(value)) return `$${value.toFixed(2)}`;
+  return String(value);
+};
+
 const getTemplateContent = (
   template: NotificationTemplateType,
-  params: { amount: number; dueDate: string; paymentLink: string }
+  params: {
+    amount: number;
+    dueDate: string;
+    paymentLink: string;
+    seasonYear: number;
+    refundAmount?: number | string;
+    processedDate?: string;
+    totalCollected?: number | string;
+    totalExpenses?: number | string;
+    totalRefunds?: number | string;
+  }
 ): string => {
-  const { amount, dueDate, paymentLink } = params;
+  const { amount, dueDate, paymentLink, seasonYear } = params;
   const formattedDate = formatDate(dueDate);
+  const refundAmount = formatMoneyLike(params.refundAmount);
+  const processedDate = params.processedDate ? formatDate(params.processedDate) : "TBD";
+  const totalCollected = formatMoneyLike(params.totalCollected);
+  const totalExpenses = formatMoneyLike(params.totalExpenses);
+  const totalRefunds = formatMoneyLike(params.totalRefunds);
 
   switch (template) {
     case "payment-request":
       return `
         <p class="info-text">
-          We hope this message finds you well! As we prepare for an exciting <span class="highlight">2026 season</span>
+          We hope this message finds you well! As we prepare for an exciting <span class="highlight">${seasonYear} season</span>
           with Starks Cricket, we kindly request your registration fee payment.
         </p>
 
@@ -63,7 +96,7 @@ const getTemplateContent = (
         <div class="refund-policy">
           <h3>Important: Refund Policy</h3>
           <p style="color: #047857; margin: 12px 0;">
-            All registration fees will be held to cover operational expenses for the 2026 season.
+            All registration fees will be held to cover operational expenses for the ${seasonYear} season.
           </p>
           <ul>
             <li><strong>Equipment purchases</strong> (bats, balls, protective gear)</li>
@@ -76,14 +109,14 @@ const getTemplateContent = (
             <strong>refunded proportionally</strong> to all paid members.
           </p>
           <p style="font-size: 14px; color: #065f46; margin-top: 16px;">
-            Expected refund processing: <strong>December 2026</strong><br>
+            Expected refund processing: <strong>December ${seasonYear}</strong><br>
             You'll receive email notification when refunds are processed<br>
             Refund amount depends on total expenses vs. collected fees
           </p>
         </div>
 
         <p class="info-text">
-          Please complete your payment by <strong>${formattedDate}</strong> to secure your spot for the 2026 season.
+          Please complete your payment by <strong>${formattedDate}</strong> to secure your spot for the ${seasonYear} season.
         </p>
 
         <p class="info-text">
@@ -94,7 +127,7 @@ const getTemplateContent = (
     case "payment-reminder":
       return `
         <p class="info-text">
-          This is a friendly reminder that your <span class="highlight">2026 Starks Cricket registration fee</span>
+          This is a friendly reminder that your <span class="highlight">${seasonYear} Starks Cricket registration fee</span>
           payment is still pending.
         </p>
 
@@ -113,7 +146,7 @@ const getTemplateContent = (
         </center>
 
         <p class="info-text">
-          Do not miss out on the 2026 season. Please complete your payment at your earliest convenience.
+          Do not miss out on the ${seasonYear} season. Please complete your payment at your earliest convenience.
         </p>
 
         <p class="info-text" style="font-size: 14px; color: #6b7280;">
@@ -124,16 +157,16 @@ const getTemplateContent = (
     case "refund-info":
       return `
         <p class="info-text">
-          Thank you for your <span class="highlight">2026 registration fee payment</span>!
+          Thank you for your <span class="highlight">${seasonYear} registration fee payment</span>!
           This email confirms our refund policy for the season.
         </p>
 
         <div class="refund-policy">
           <h3>Refund Policy Details</h3>
           <ul>
-            <li>All registration fees are used to cover 2026 operational expenses</li>
+            <li>All registration fees are used to cover ${seasonYear} operational expenses</li>
             <li>Expenses include: equipment, venue rentals, tournament fees, insurance, etc.</li>
-            <li>At year-end (December 2026), we will calculate total expenses vs. collected fees</li>
+            <li>At year-end (December ${seasonYear}), we will calculate total expenses vs. collected fees</li>
             <li>If there are remaining funds, refunds will be processed proportionally</li>
             <li>You will receive email notification with refund details</li>
           </ul>
@@ -141,10 +174,10 @@ const getTemplateContent = (
 
         <div style="background-color: #eff6ff; padding: 20px; border-radius: 8px; margin: 24px 0;">
           <h3 style="margin-top: 0; color: #1e40af; font-size: 16px;">Timeline</h3>
-          <p style="color: #3b82f6; margin: 8px 0;"><strong>Now - Mid 2026:</strong> Registration fees collected</p>
-          <p style="color: #3b82f6; margin: 8px 0;"><strong>Throughout 2026:</strong> Operational expenses paid</p>
-          <p style="color: #3b82f6; margin: 8px 0;"><strong>December 2026:</strong> Final expense calculation</p>
-          <p style="color: #3b82f6; margin: 8px 0;"><strong>End of December 2026:</strong> Refunds processed (if applicable)</p>
+          <p style="color: #3b82f6; margin: 8px 0;"><strong>Now - Mid ${seasonYear}:</strong> Registration fees collected</p>
+          <p style="color: #3b82f6; margin: 8px 0;"><strong>Throughout ${seasonYear}:</strong> Operational expenses paid</p>
+          <p style="color: #3b82f6; margin: 8px 0;"><strong>December ${seasonYear}:</strong> Final expense calculation</p>
+          <p style="color: #3b82f6; margin: 8px 0;"><strong>End of December ${seasonYear}:</strong> Refunds processed (if applicable)</p>
         </div>
 
         <p class="info-text">
@@ -159,7 +192,7 @@ const getTemplateContent = (
     case "refund-processed":
       return `
         <p class="info-text" style="font-size: 18px; font-weight: 600; color: #059669;">
-          Great news! We have completed our 2026 expense reconciliation and processed your refund.
+          Great news! We have completed our ${seasonYear} expense reconciliation and processed your refund.
         </p>
 
         <div style="background-color: #ecfdf5; border: 2px solid #10b981; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: center;">
@@ -167,18 +200,18 @@ const getTemplateContent = (
             Refund Amount
           </div>
           <div style="font-size: 42px; font-weight: bold; color: #047857; margin: 10px 0;">
-            $75.00
+            ${refundAmount}
           </div>
           <div style="font-size: 14px; color: #059669; margin-top: 8px;">
-            Processed on: December 28, 2026
+            Processed on: ${processedDate}
           </div>
         </div>
 
         <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 24px 0;">
           <h3 style="margin-top: 0; color: #374151; font-size: 16px;">Expense Summary</h3>
-          <p style="color: #6b7280; margin: 8px 0;">Total Registration Fees Collected: $3,000</p>
-          <p style="color: #6b7280; margin: 8px 0;">Total Operational Expenses: $2,250</p>
-          <p style="color: #6b7280; margin: 8px 0;">Total Refunds Distributed: $750</p>
+          <p style="color: #6b7280; margin: 8px 0;">Total Registration Fees Collected: ${totalCollected}</p>
+          <p style="color: #6b7280; margin: 8px 0;">Total Operational Expenses: ${totalExpenses}</p>
+          <p style="color: #6b7280; margin: 8px 0;">Total Refunds Distributed: ${totalRefunds}</p>
         </div>
 
         <p class="info-text">
@@ -191,7 +224,7 @@ const getTemplateContent = (
         </p>
 
         <p class="info-text" style="font-weight: 600; color: #3b82f6;">
-          We look forward to seeing you in the 2027 season.
+          We look forward to seeing you in the ${seasonYear + 1} season.
         </p>
       `;
 
@@ -202,6 +235,7 @@ const getTemplateContent = (
 
 const getEmailHTML = (params: PaymentNotificationParams): string => {
   const { userName, amount, dueDate, paymentLink, template } = params;
+  const seasonYear = resolveSeasonYear(params);
 
   return `
 <!DOCTYPE html>
@@ -330,7 +364,17 @@ const getEmailHTML = (params: PaymentNotificationParams): string => {
 
     <div class="content">
       <p class="greeting">Dear ${userName},</p>
-      ${getTemplateContent(template, { amount, dueDate, paymentLink })}
+      ${getTemplateContent(template, {
+        amount,
+        dueDate,
+        paymentLink,
+        seasonYear,
+        refundAmount: params.refundAmount,
+        processedDate: params.processedDate,
+        totalCollected: params.totalCollected,
+        totalExpenses: params.totalExpenses,
+        totalRefunds: params.totalRefunds,
+      })}
     </div>
 
     <div class="footer">
@@ -349,27 +393,28 @@ const getEmailHTML = (params: PaymentNotificationParams): string => {
 const getPlainTextContent = (params: PaymentNotificationParams): string => {
   const { userName, amount, dueDate, paymentLink, template } = params;
   const formattedDate = formatDate(dueDate);
+  const seasonYear = resolveSeasonYear(params);
 
   switch (template) {
     case "payment-request":
       return `Dear ${userName},
 
-Please complete your 2026 Starks Cricket registration fee payment.
+Please complete your ${seasonYear} Starks Cricket registration fee payment.
 
 Amount: $${amount}
 Due Date: ${formattedDate}
 Payment Link: ${paymentLink}
 
-Important: Registration fees cover 2026 operational expenses. Any remaining funds after year-end reconciliation will be refunded proportionally to paid members.
+Important: Registration fees cover ${seasonYear} operational expenses. Any remaining funds after year-end reconciliation will be refunded proportionally to paid members.
 
-Expected refund processing: December 2026.
+Expected refund processing: December ${seasonYear}.
 
 Questions: starks.cricket@thetcl.org
 `;
     case "payment-reminder":
       return `Dear ${userName},
 
-Friendly reminder: your 2026 Starks Cricket registration fee payment is still pending.
+Friendly reminder: your ${seasonYear} Starks Cricket registration fee payment is still pending.
 
 Amount: $${amount}
 Due Date: ${formattedDate}
@@ -382,10 +427,10 @@ Questions: starks.cricket@thetcl.org
     case "refund-info":
       return `Dear ${userName},
 
-Thank you for your 2026 registration fee payment.
+Thank you for your ${seasonYear} registration fee payment.
 This message confirms our refund policy:
-- Fees are used for 2026 operational expenses.
-- Final reconciliation happens in December 2026.
+- Fees are used for ${seasonYear} operational expenses.
+- Final reconciliation happens in December ${seasonYear}.
 - Remaining funds are refunded proportionally.
 
 Questions: starks.cricket@thetcl.org
@@ -393,7 +438,7 @@ Questions: starks.cricket@thetcl.org
     case "refund-processed":
       return `Dear ${userName},
 
-Great news. Your Starks Cricket 2026 refund has been processed.
+Great news. Your Starks Cricket ${seasonYear} refund has been processed.
 Please allow 3-5 business days for settlement.
 
 Questions: starks.cricket@thetcl.org
@@ -404,21 +449,22 @@ Questions: starks.cricket@thetcl.org
 };
 
 export const getSubject = (template: NotificationTemplateType, amount: number): string => {
+  const seasonYear = new Date().getFullYear();
   switch (template) {
     case "payment-request":
-      return `2026 Starks Cricket Registration Fee ($${amount}) - Action Required`;
+      return `${seasonYear} Starks Cricket Registration Fee ($${amount}) - Action Required`;
     case "payment-reminder":
-      return "Reminder: 2026 Registration Fee Payment Pending";
+      return `Reminder: ${seasonYear} Registration Fee Payment Pending`;
     case "refund-info":
-      return "Starks Cricket 2026 - Refund Policy Information";
+      return `Starks Cricket ${seasonYear} - Refund Policy Information`;
     case "refund-processed":
-      return "Starks Cricket 2026 - Refund Processed";
+      return `Starks Cricket ${seasonYear} - Refund Processed`;
     default:
       return "Starks Cricket Notification";
   }
 };
 
-// SendGrid implementation entrypoint.
+// Manual/draft-mode implementation entrypoint.
 export const sendPaymentNotificationEmail = async (
   params: PaymentNotificationParams
 ): Promise<boolean> => {
@@ -431,10 +477,8 @@ export const sendPaymentNotificationEmail = async (
       textContent: getPlainTextContent(params),
     };
 
-    // TODO: Integrate SendGrid server-side (recommended in API route/Cloud Function):
-    // import sgMail from "@sendgrid/mail";
-    // sgMail.setApiKey(process.env.SENDGRID_API_KEY ?? "");
-    // await sgMail.send({
+    // TODO: Integrate a provider later (Resend/Mailgun/SES/etc) in API route/Cloud Function:
+    // await provider.send({
     //   to: email.to,
     //   from: "starks.cricket@thetcl.org",
     //   subject: email.subject,

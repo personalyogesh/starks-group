@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Award, Calendar, MapPin, MessageCircle, PhoneCall, Sparkles, Users } from "lucide-react";
 import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
@@ -102,6 +102,28 @@ export default function LandingPage() {
       cancelled = true;
     };
   }, []);
+
+  const upcomingEvents = useMemo(() => {
+    const toEventDate = (event: EventDoc): Date | null => {
+      const raw = (event as any)?.dateTime ?? (event as any)?.date;
+      if (!raw) return null;
+      if (typeof raw?.toDate === "function") return raw.toDate();
+      const d = new Date(raw);
+      return Number.isNaN(d.getTime()) ? null : d;
+    };
+
+    const now = Date.now();
+    return events
+      .filter(({ data }) => {
+        const d = toEventDate(data);
+        return Boolean(d && d.getTime() >= now);
+      })
+      .sort((a, b) => {
+        const ad = toEventDate(a.data)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bd = toEventDate(b.data)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return ad - bd;
+      });
+  }, [events]);
 
   return (
     <div className="space-y-10">
@@ -395,11 +417,11 @@ export default function LandingPage() {
               <p className="text-sm text-slate-600 mt-1">Matches, practices, community meetups, and announcements.</p>
             </CardHeader>
             <CardBody>
-              {events.length === 0 && (
+              {upcomingEvents.length === 0 && (
                 <p className="text-slate-600">{isFirebaseConfigured ? "No events yet." : "Connect Firebase to load events."}</p>
               )}
               <div className="grid gap-4">
-                {events.map(({ id, data }) => (
+                {upcomingEvents.map(({ id, data }) => (
                   <div key={id} className="rounded-2xl border border-slate-200 bg-white p-4 hover:shadow-sm transition">
                     <div className="flex items-start justify-between gap-3">
                       <div>

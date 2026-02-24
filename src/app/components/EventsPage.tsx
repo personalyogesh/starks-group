@@ -10,9 +10,8 @@ import {
   EventDoc,
   listenCollection,
   listenUserRsvps,
-  registerForEventOptIn,
-  unregisterFromEventOptIn,
 } from "@/lib/firestore";
+import { registerForEvent, unregisterFromEvent } from "@/lib/firebase/eventsService";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -58,11 +57,11 @@ function fmtDateTime(e: EventDoc, hydrated: boolean) {
   });
 }
 
-function isEnded(e: EventDoc, hydrated: boolean) {
-  // Avoid hydration mismatch around time boundaries.
-  if (!hydrated) return false;
+function isEnded(e: EventDoc) {
+  // Treat events without valid date as non-upcoming to avoid showing stale rows.
   const d = parseDateTime(e);
-  return Boolean(d && d.getTime() < Date.now());
+  if (!d) return true;
+  return d.getTime() < Date.now();
 }
 
 function registrationCount(e: EventDoc) {
@@ -164,8 +163,8 @@ export default function EventsPage() {
     return list;
   }, [events, category, search, tab, myEventIds, sort]);
 
-  const upcoming = useMemo(() => visible.filter((e) => !isEnded(e.data, hydrated)), [visible, hydrated]);
-  const past = useMemo(() => visible.filter((e) => isEnded(e.data, hydrated)), [visible, hydrated]);
+  const upcoming = useMemo(() => visible.filter((e) => !isEnded(e.data)), [visible]);
+  const past = useMemo(() => visible.filter((e) => isEnded(e.data)), [visible]);
 
   const canInteract = Boolean(isApproved && isFirebaseConfigured && uid);
 
@@ -188,10 +187,10 @@ export default function EventsPage() {
     setActing(true);
     try {
       if (confirm.mode === "register") {
-        await registerForEventOptIn(confirm.eventId, uid);
+        await registerForEvent(confirm.eventId, uid);
         toast({ kind: "success", title: "Registered", description: "Successfully registered!" });
       } else {
-        await unregisterFromEventOptIn(confirm.eventId, uid);
+        await unregisterFromEvent(confirm.eventId, uid);
         toast({ kind: "success", title: "Unregistered", description: "You have been unregistered." });
       }
     } catch (e: any) {
@@ -353,7 +352,7 @@ function EventCard({
   onRegister: () => void;
   onUnregister: () => void;
 }) {
-  const ended = isEnded(data, hydrated);
+  const ended = isEnded(data);
   const count = registrationCount(data);
   const max = data.maxParticipants ?? null;
   const full = typeof max === "number" && max > 0 && count >= max;
