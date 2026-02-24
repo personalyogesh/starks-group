@@ -44,6 +44,7 @@ interface NotificationTemplate {
   amount?: number;
   dueDate?: string;
 }
+type NotificationTemplateId = NotificationTemplate["type"];
 
 interface NotificationCenterProps {
   navigateTo: (page: string) => void;
@@ -57,7 +58,7 @@ export function NotificationCenter({ navigateTo, currentUser }: NotificationCent
   const FORCE_DRAFT_MODE = true;
 
   const [users, setUsers] = useState<User[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("payment-request");
+  const [selectedTemplate, setSelectedTemplate] = useState<NotificationTemplateId>("payment-request");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
 
@@ -86,7 +87,7 @@ export function NotificationCenter({ navigateTo, currentUser }: NotificationCent
     void loadUsers();
   }, []);
 
-  const templates: Record<string, NotificationTemplate> = useMemo(
+  const templates: Record<NotificationTemplateId, NotificationTemplate> = useMemo(
     () => ({
       "payment-request": {
         id: "payment-request",
@@ -358,7 +359,7 @@ Starks Group`,
     }
   }
 
-  function handleTemplateChange(templateId: string) {
+  function handleTemplateChange(templateId: NotificationTemplateId) {
     setSelectedTemplate(templateId);
     const template = templates[templateId];
     setFormData((prev) => ({
