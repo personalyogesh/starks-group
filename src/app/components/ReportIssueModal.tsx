@@ -5,9 +5,9 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useAuth } from "@/lib/AuthContext";
-import { db, isFirebaseConfigured, storage } from "@/lib/firebaseClient";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { isFirebaseConfigured, storage } from "@/lib/firebaseClient";
 import { getDownloadURL, ref, uploadString } from "firebase/storage";
+import { submitIssueReport } from "@/lib/issueReportService";
 
 export type CapturedError = {
   message: string;
@@ -80,81 +80,41 @@ export function ReportIssueModal({
     setSubmitting(true);
     try {
       let screenshotUrl: string | null = null;
-      let reportId: string | null = null;
 
       // Try to capture screenshot (best-effort; user can deny permission)
       const shot = await captureScreenshotDataUrl();
 
-      if (isFirebaseConfigured) {
-        // Write report doc first
-        const docRef = await addDoc(collection(db, "issueReports"), {
-          createdAt: serverTimestamp(),
-          uid: currentUser?.authUser?.uid ?? null,
-          email: currentUser?.authUser?.email ?? null,
-          pageUrl: typeof window !== "undefined" ? window.location.href : null,
-          userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-          error: {
-            message: safeError.message,
-            code: safeError.code ?? null,
-            stack: safeError.stack ?? null,
-            context: safeError.context ?? null,
-          },
-          note: note.trim() || null,
-          screenshotUrl: null,
-          status: "new",
-        });
-        reportId = docRef.id;
-
-        // Upload screenshot if we got one and the user is signed in (Storage rules likely require auth)
-        if (shot && currentUser?.authUser?.uid) {
-          try {
-            const path = `issue-reports/${currentUser.authUser.uid}/${reportId}.png`;
-            const sref = ref(storage, path);
-            await uploadString(sref, shot, "data_url");
-            screenshotUrl = await getDownloadURL(sref);
-            // best-effort update (we keep it simple: no updateDoc helper import)
-            await addDoc(collection(db, "issueReports", reportId, "attachments"), {
-              createdAt: serverTimestamp(),
-              type: "screenshot",
-              url: screenshotUrl,
-            });
-          } catch {
-            // ignore screenshot upload failures
-          }
+      // Upload screenshot if we got one and the user is signed in (Storage rules require auth)
+      if (isFirebaseConfigured && shot && currentUser?.authUser?.uid) {
+        try {
+          const path = `issue-reports/${currentUser.authUser.uid}/${Date.now()}.png`;
+          const sref = ref(storage, path);
+          await uploadString(sref, shot, "data_url");
+          screenshotUrl = await getDownloadURL(sref);
+        } catch {
+          // ignore screenshot upload failures
         }
       }
 
-      const subject = encodeURIComponent("Starks App Issue Report");
-      const body = encodeURIComponent(
-        [
-          "Hi Starks Group Team,",
-          "",
-          "A user reported an issue in the app.",
-          "",
-          `Page: ${typeof window !== "undefined" ? window.location.href : "unknown"}`,
-          reportId ? `Report ID: ${reportId}` : "",
-          screenshotUrl ? `Screenshot: ${screenshotUrl}` : "",
-          "",
-          `Message: ${safeError.message}`,
-          safeError.code ? `Code: ${safeError.code}` : "",
-          "",
-          note.trim() ? `User note: ${note.trim()}` : "",
-          "",
-          "Thanks,",
-          "Starks Cricket App",
-        ]
-          .filter(Boolean)
-          .join("\n")
-      );
+      await submitIssueReport({
+        userEmail: currentUser?.authUser?.email ?? null,
+        note: note.trim(),
+        pageUrl: typeof window !== "undefined" ? window.location.href : "",
+        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
+        screenshotUrl,
+        error: {
+          message: safeError.message,
+          code: safeError.code,
+          stack: safeError.stack,
+          context: safeError.context ?? null,
+        },
+      });
 
-      // Open mail client (no backend email needed)
-      window.location.href = `mailto:starksgroup@starksgrp.org?subject=${subject}&body=${body}`;
-
-      toast({ kind: "success", title: "Report prepared", description: "Your email app should open with the report details." });
+      toast({ kind: "success", title: "Report submitted", description: "Thanks. Our team will review this issue shortly." });
       onOpenChange(false);
       setNote("");
     } catch (e: any) {
-      toast({ kind: "error", title: "Report failed", description: e?.message ?? "Failed to prepare report." });
+      toast({ kind: "error", title: "Report failed", description: e?.message ?? "Failed to submit report." });
     } finally {
       setSubmitting(false);
     }
@@ -193,8 +153,7 @@ export function ReportIssueModal({
             placeholder="What were you trying to do? Any steps to reproduce?"
           />
           <div className="text-xs text-slate-500">
-            When you click Report, we’ll open an email to <b>starksgroup@starksgrp.org</b>. If you allow it, we may attach a
-            screenshot.
+            Reports are submitted directly to the support queue. If allowed, a screenshot may be included.
           </div>
         </div>
       </div>

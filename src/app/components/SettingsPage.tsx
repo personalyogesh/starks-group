@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { updateUserProfile } from "@/lib/firestore";
 import { useToast } from "@/components/ui/ToastProvider";
 import { auth, isFirebaseConfigured } from "@/lib/firebaseClient";
+import { NotificationSettings } from "@/app/components/user/NotificationSettings";
 import { sendPasswordResetEmail } from "firebase/auth";
 
 import {
@@ -239,10 +240,12 @@ export default function SettingsPage() {
 
       {tab === "notifications" && (
         <div className="space-y-4">
+          <NotificationSettings currentUser={currentUser?.authUser} />
+
           <Card>
             <CardHeader>
-              <div className="text-lg font-extrabold">Email Notifications</div>
-              <div className="text-sm text-slate-600 mt-1">Choose what updates you receive.</div>
+              <div className="text-lg font-extrabold">General App Notifications</div>
+              <div className="text-sm text-slate-600 mt-1">Choose what activity updates you receive.</div>
             </CardHeader>
             <CardBody>
               <div className="space-y-4">

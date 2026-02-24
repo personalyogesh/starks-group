@@ -5,6 +5,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   limit,
   orderBy,
@@ -24,7 +25,7 @@ export type Transaction = {
   subcategory?: string | null;
   amount: number;
   method: "paypal" | "zelle" | "venmo" | "check" | "cash";
-  status: "pending" | "completed" | "refunded" | "cancelled";
+  status: "pending" | "verified" | "completed" | "reconciled" | "refunded" | "cancelled";
   description: string;
 
   // Income specific
@@ -41,6 +42,14 @@ export type Transaction = {
   // Common
   receiptUrl?: string | null;
   notes?: string | null;
+  externalReference?: string | null; // e.g. PayPal txn ID, bank memo, Zelle confirmation
+  sourceAccount?: "truist-zelle" | "paypal-business" | "other" | null;
+  postedAt?: any; // statement posting date from bank/payment provider
+  parentTransactionId?: string | null; // used for linked refunds/adjustments
+  refundReason?: string | null;
+  reconciliationStatus?: "unreconciled" | "matched" | "reconciled";
+  reconciledBy?: string | null;
+  reconciledAt?: any;
   fiscalYear: number;
   createdAt: any;
   createdBy: string;
@@ -123,6 +132,9 @@ export async function createIncomeTransaction(
     payerEmail?: string;
     purpose?: NonNullable<Transaction["purpose"]>;
     notes?: string;
+    externalReference?: string;
+    sourceAccount?: Transaction["sourceAccount"];
+    postedAt?: Date | Timestamp | string;
     metadata?: any;
   }
 ): Promise<string> {
@@ -140,6 +152,17 @@ export async function createIncomeTransaction(
     payerEmail: data.payerEmail ?? null,
     purpose: data.purpose ?? null,
     notes: data.notes ?? null,
+    externalReference: data.externalReference ?? null,
+    sourceAccount: data.sourceAccount ?? null,
+    postedAt:
+      data.postedAt instanceof Timestamp
+        ? data.postedAt
+        : data.postedAt
+        ? Timestamp.fromDate(new Date(data.postedAt))
+        : null,
+    reconciliationStatus: "unreconciled",
+    reconciledBy: null,
+    reconciledAt: null,
     fiscalYear: getCurrentFiscalYear(),
     createdAt: serverTimestamp(),
     createdBy: actorUid,
@@ -163,6 +186,9 @@ export async function createExpenseTransaction(
     invoiceNumber?: string;
     notes?: string;
     receiptUrl?: string;
+    externalReference?: string;
+    sourceAccount?: Transaction["sourceAccount"];
+    postedAt?: Date | Timestamp | string;
   }
 ): Promise<string> {
   assertFirebaseConfigured();
@@ -179,6 +205,17 @@ export async function createExpenseTransaction(
     invoiceNumber: data.invoiceNumber ?? null,
     notes: data.notes ?? null,
     receiptUrl: data.receiptUrl ?? null,
+    externalReference: data.externalReference ?? null,
+    sourceAccount: data.sourceAccount ?? null,
+    postedAt:
+      data.postedAt instanceof Timestamp
+        ? data.postedAt
+        : data.postedAt
+        ? Timestamp.fromDate(new Date(data.postedAt))
+        : null,
+    reconciliationStatus: "unreconciled",
+    reconciledBy: null,
+    reconciledAt: null,
     fiscalYear: getCurrentFiscalYear(),
     createdAt: serverTimestamp(),
     createdBy: actorUid,
@@ -348,6 +385,81 @@ export async function approveTransaction(transactionId: string, adminId: string)
   });
 }
 
+export async function verifyTransaction(transactionId: string, adminId: string): Promise<void> {
+  assertFirebaseConfigured();
+  await updateDoc(doc(db, "transactions", transactionId), {
+    status: "verified",
+    approvedBy: adminId,
+    approvedAt: serverTimestamp(),
+  });
+}
+
+export async function reconcileTransaction(
+  transactionId: string,
+  adminId: string,
+  args?: { externalReference?: string }
+): Promise<void> {
+  assertFirebaseConfigured();
+  await updateDoc(doc(db, "transactions", transactionId), {
+    status: "reconciled",
+    reconciliationStatus: "reconciled",
+    reconciledBy: adminId,
+    reconciledAt: serverTimestamp(),
+    ...(args?.externalReference ? { externalReference: args.externalReference } : {}),
+  });
+}
+
+export async function createRefundTransaction(
+  actorUid: string,
+  args: {
+    originalTransactionId: string;
+    amount: number;
+    method: Transaction["method"];
+    reason: string;
+    notes?: string;
+    externalReference?: string;
+    sourceAccount?: Transaction["sourceAccount"];
+  }
+): Promise<string> {
+  assertFirebaseConfigured();
+  const originalRef = doc(db, "transactions", args.originalTransactionId);
+  const originalSnap = await getDoc(originalRef);
+  if (!originalSnap.exists()) throw new Error("Original transaction not found.");
+  const original = originalSnap.data() as Omit<Transaction, "id">;
+
+  const refundTx: Omit<Transaction, "id"> = stripUndefined({
+    type: "expense",
+    category: original.category || "refund",
+    subcategory: "refund",
+    amount: args.amount,
+    method: args.method,
+    status: "reconciled",
+    description: `Refund for ${original.description || "transaction"}`,
+    payee: original.payerName ?? original.payerEmail ?? "Member",
+    notes: args.notes ?? null,
+    externalReference: args.externalReference ?? null,
+    sourceAccount: args.sourceAccount ?? original.sourceAccount ?? null,
+    postedAt: serverTimestamp(),
+    parentTransactionId: args.originalTransactionId,
+    refundReason: args.reason,
+    reconciliationStatus: "reconciled",
+    reconciledBy: actorUid,
+    reconciledAt: serverTimestamp(),
+    fiscalYear: getCurrentFiscalYear(),
+    createdAt: serverTimestamp(),
+    createdBy: actorUid,
+    approvedBy: actorUid,
+    approvedAt: serverTimestamp(),
+  });
+
+  const refundRef = await addDoc(collection(db, "transactions"), refundTx);
+  await updateDoc(originalRef, {
+    status: "refunded",
+    refundReason: args.reason,
+  });
+  return refundRef.id;
+}
+
 // Creates a transaction server-side (Admin SDK) so members can "record" a payment even though `/transactions` is admin-write only.
 export async function createMemberIncomeTransaction(args: {
   amount: number;
@@ -378,6 +490,40 @@ export async function createMemberIncomeTransaction(args: {
   return String((res.data as any)?.transactionId ?? "");
 }
 
+export async function sendFinanceNotifications(args: {
+  template: "payment-request" | "payment-reminder" | "refund-info" | "refund-processed" | "custom";
+  recipients: Array<{
+    userId: string;
+    email: string;
+    name: string;
+    subject: string;
+    message: string;
+    sendEmail: boolean;
+    sendPush?: boolean;
+    pushToken?: string;
+  }>;
+}) {
+  await assertFunctionsConfigured();
+  const fn = httpsCallable<
+    {
+      template: string;
+      recipients: Array<{
+        userId: string;
+        email: string;
+        name: string;
+        subject: string;
+        message: string;
+        sendEmail: boolean;
+        sendPush?: boolean;
+        pushToken?: string;
+      }>;
+    },
+    { ok: true; sent: number; failed: number; failures?: Array<{ email: string; error: string }> }
+  >(functions, "sendFinanceNotifications");
+  const res = await fn(stripUndefined(args) as any);
+  return res.data;
+}
+
 // Export for CPA
 export async function exportTransactionsToCSV(fiscalYear: number): Promise<string> {
   const transactions = await getTransactions({ fiscalYear });
@@ -391,9 +537,13 @@ export async function exportTransactionsToCSV(fiscalYear: number): Promise<strin
     "Amount",
     "Method",
     "Status",
+    "Reconciliation Status",
     "Payer/Payee",
     "Purpose",
     "Invoice #",
+    "External Reference",
+    "Source Account",
+    "Parent Transaction",
     "Approved By",
     "Notes",
   ].join(",");
@@ -404,6 +554,9 @@ export async function exportTransactionsToCSV(fiscalYear: number): Promise<strin
     const payerPayee = t.type === "income" ? (t.payerName || "") : (t.payee || "");
     const purpose = t.purpose || "";
     const invoice = t.invoiceNumber || "";
+    const externalReference = t.externalReference || "";
+    const sourceAccount = t.sourceAccount || "";
+    const parentTransactionId = t.parentTransactionId || "";
     const approvedBy = t.approvedBy || "";
     const notes = t.notes || "";
     return [
@@ -415,9 +568,13 @@ export async function exportTransactionsToCSV(fiscalYear: number): Promise<strin
       Number(t.amount || 0).toFixed(2),
       t.method,
       t.status,
+      t.reconciliationStatus || "",
       `"${String(payerPayee).replaceAll('"', '""')}"`,
       purpose,
       invoice,
+      externalReference,
+      sourceAccount,
+      parentTransactionId,
       approvedBy,
       `"${String(notes).replaceAll('"', '""')}"`,
     ].join(",");

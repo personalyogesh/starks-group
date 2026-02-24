@@ -8,17 +8,23 @@ import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Select from "@/components/ui/Select";
 import Input from "@/components/ui/Input";
+import Modal from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { reportIssue } from "@/lib/reportIssue";
 
 import {
   approveTransaction,
+  createExpenseTransaction,
+  createIncomeTransaction,
+  createRefundTransaction,
   exportTransactionsToCSV,
   getCurrentFiscalYear,
   getDonationsAdmin,
   getFinancialSummary,
   getMembershipPaymentsAdmin,
   getTransactions,
+  reconcileTransaction,
+  verifyTransaction,
   type Donation,
   type MembershipPayment,
   type Transaction,
@@ -31,6 +37,7 @@ import {
   Clock,
   Download,
   FileText,
+  Mail,
   PieChart,
   Receipt,
   TrendingDown,
@@ -39,7 +46,7 @@ import {
 } from "lucide-react";
 
 type FilterType = "all" | "income" | "expense";
-type FilterStatus = "all" | "pending" | "completed" | "cancelled" | "refunded";
+type FilterStatus = "all" | "pending" | "verified" | "completed" | "reconciled" | "cancelled" | "refunded";
 
 function formatMoney(n: number) {
   try {
@@ -95,6 +102,36 @@ export default function FinancialDashboard() {
   const [selectedYear, setSelectedYear] = useState<number>(getCurrentFiscalYear());
   const [q, setQ] = useState("");
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+  const [reconcilingId, setReconcilingId] = useState<string | null>(null);
+  const [refundingId, setRefundingId] = useState<string | null>(null);
+  const [refundModal, setRefundModal] = useState<{
+    open: boolean;
+    tx: Transaction | null;
+    amount: string;
+    reason: string;
+    externalReference: string;
+  }>({
+    open: false,
+    tx: null,
+    amount: "",
+    reason: "",
+    externalReference: "",
+  });
+  const [savingEntry, setSavingEntry] = useState(false);
+  const [entry, setEntry] = useState({
+    type: "income" as "income" | "expense",
+    category: "membership",
+    amount: "",
+    method: "zelle" as "paypal" | "zelle" | "venmo" | "check" | "cash",
+    description: "",
+    payerName: "",
+    payee: "",
+    sourceAccount: "truist-zelle" as "truist-zelle" | "paypal-business" | "other",
+    externalReference: "",
+    postedAt: "",
+    notes: "",
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -209,6 +246,170 @@ export default function FinancialDashboard() {
     }
   }
 
+  async function handleCreateLedgerEntry() {
+    if (!currentUser?.authUser?.uid) return;
+    if (!entry.category.trim()) {
+      toast({ kind: "error", title: "Category required" });
+      return;
+    }
+    const amount = Number(entry.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast({ kind: "error", title: "Valid amount required" });
+      return;
+    }
+    if (!entry.description.trim()) {
+      toast({ kind: "error", title: "Description required" });
+      return;
+    }
+
+    setSavingEntry(true);
+    try {
+      if (entry.type === "income") {
+        await createIncomeTransaction(currentUser.authUser.uid, {
+          category: entry.category.trim(),
+          amount,
+          method: entry.method,
+          description: entry.description.trim(),
+          payerName: entry.payerName.trim() || undefined,
+          notes: entry.notes.trim() || undefined,
+          externalReference: entry.externalReference.trim() || undefined,
+          sourceAccount: entry.sourceAccount,
+          postedAt: entry.postedAt || undefined,
+          metadata: { enteredFrom: "financial-dashboard-manual" },
+        });
+      } else {
+        await createExpenseTransaction(currentUser.authUser.uid, {
+          category: entry.category.trim(),
+          amount,
+          method: entry.method,
+          description: entry.description.trim(),
+          payee: entry.payee.trim() || undefined,
+          notes: entry.notes.trim() || undefined,
+          externalReference: entry.externalReference.trim() || undefined,
+          sourceAccount: entry.sourceAccount,
+          postedAt: entry.postedAt || undefined,
+        } as any);
+      }
+
+      toast({ kind: "success", title: "Ledger entry saved" });
+      setEntry((p) => ({
+        ...p,
+        amount: "",
+        description: "",
+        payerName: "",
+        payee: "",
+        externalReference: "",
+        postedAt: "",
+        notes: "",
+      }));
+
+      const [tx, s, mp, dn] = await Promise.all([
+        getTransactions({ fiscalYear: selectedYear, ...(filterType !== "all" ? { type: filterType } : {}), ...(filterStatus !== "all" ? { status: filterStatus } : {}) }),
+        getFinancialSummary(selectedYear),
+        getMembershipPaymentsAdmin({ max: 250 }),
+        getDonationsAdmin({ max: 250 }),
+      ]);
+      setTransactions(tx);
+      setSummary(s);
+      setMembershipPayments(mp);
+      setDonations(dn);
+    } catch (err: any) {
+      console.error("[FinancialDashboard] manual entry error", err);
+      toast({ kind: "error", title: "Save failed", description: err?.message ?? "Failed to save ledger entry." });
+    } finally {
+      setSavingEntry(false);
+    }
+  }
+
+  async function handleVerify(id: string) {
+    if (!currentUser?.authUser?.uid) return;
+    setVerifyingId(id);
+    try {
+      await verifyTransaction(id, currentUser.authUser.uid);
+      toast({ kind: "success", title: "Verified", description: "Transaction verified." });
+      const [tx, s] = await Promise.all([
+        getTransactions({ fiscalYear: selectedYear, ...(filterType !== "all" ? { type: filterType } : {}), ...(filterStatus !== "all" ? { status: filterStatus } : {}) }),
+        getFinancialSummary(selectedYear),
+      ]);
+      setTransactions(tx);
+      setSummary(s);
+    } catch (err: any) {
+      console.error("[FinancialDashboard] verify error", err);
+      toast({ kind: "error", title: "Verify failed", description: err?.message ?? "Failed to verify transaction." });
+    } finally {
+      setVerifyingId(null);
+    }
+  }
+
+  async function handleReconcile(id: string) {
+    if (!currentUser?.authUser?.uid) return;
+    setReconcilingId(id);
+    try {
+      await reconcileTransaction(id, currentUser.authUser.uid);
+      toast({ kind: "success", title: "Reconciled", description: "Transaction marked reconciled." });
+      const [tx, s] = await Promise.all([
+        getTransactions({ fiscalYear: selectedYear, ...(filterType !== "all" ? { type: filterType } : {}), ...(filterStatus !== "all" ? { status: filterStatus } : {}) }),
+        getFinancialSummary(selectedYear),
+      ]);
+      setTransactions(tx);
+      setSummary(s);
+    } catch (err: any) {
+      console.error("[FinancialDashboard] reconcile error", err);
+      toast({ kind: "error", title: "Reconcile failed", description: err?.message ?? "Failed to reconcile transaction." });
+    } finally {
+      setReconcilingId(null);
+    }
+  }
+
+  function openRefundModal(t: Transaction) {
+    setRefundModal({
+      open: true,
+      tx: t,
+      amount: String(Number(t.amount || 0).toFixed(2)),
+      reason: "Refund requested / adjustment",
+      externalReference: "",
+    });
+  }
+
+  async function submitRefundModal() {
+    if (!currentUser?.authUser?.uid || !refundModal.tx) return;
+    const t = refundModal.tx;
+    const refundAmount = Number(refundModal.amount);
+    if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+      toast({ kind: "error", title: "Invalid refund amount" });
+      return;
+    }
+    if (!refundModal.reason.trim()) {
+      toast({ kind: "error", title: "Refund reason required" });
+      return;
+    }
+
+    setRefundingId(t.id);
+    try {
+      await createRefundTransaction(currentUser.authUser.uid, {
+        originalTransactionId: t.id,
+        amount: refundAmount,
+        method: t.method,
+        reason: refundModal.reason.trim(),
+        externalReference: refundModal.externalReference.trim() || undefined,
+        sourceAccount: (t.sourceAccount as any) ?? "other",
+      });
+      toast({ kind: "success", title: "Refund recorded" });
+      const [tx, s] = await Promise.all([
+        getTransactions({ fiscalYear: selectedYear, ...(filterType !== "all" ? { type: filterType } : {}), ...(filterStatus !== "all" ? { status: filterStatus } : {}) }),
+        getFinancialSummary(selectedYear),
+      ]);
+      setTransactions(tx);
+      setSummary(s);
+      setRefundModal({ open: false, tx: null, amount: "", reason: "", externalReference: "" });
+    } catch (err: any) {
+      console.error("[FinancialDashboard] refund error", err);
+      toast({ kind: "error", title: "Refund failed", description: err?.message ?? "Failed to record refund." });
+    } finally {
+      setRefundingId(null);
+    }
+  }
+
   return (
     <RequireAdmin>
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
@@ -287,6 +488,91 @@ export default function FinancialDashboard() {
             />
           </div>
         )}
+
+        {/* Manual ledger entry (no direct institution integration required) */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <div className="font-bold text-lg">Manual Ledger Entry</div>
+                <div className="text-sm text-slate-600 mt-1">
+                  Record PayPal/Zelle/Truist transactions with references for CPA audit trail.
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardBody>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <Select value={entry.type} onChange={(e) => setEntry((p) => ({ ...p, type: e.target.value as any }))}>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+              </Select>
+              <Input
+                placeholder="Category (membership, sponsor, equipment...)"
+                value={entry.category}
+                onChange={(e) => setEntry((p) => ({ ...p, category: e.target.value }))}
+              />
+              <Input
+                placeholder="Amount"
+                type="number"
+                value={entry.amount}
+                onChange={(e) => setEntry((p) => ({ ...p, amount: e.target.value }))}
+              />
+              <Select value={entry.method} onChange={(e) => setEntry((p) => ({ ...p, method: e.target.value as any }))}>
+                <option value="zelle">Zelle</option>
+                <option value="paypal">PayPal</option>
+                <option value="check">Check</option>
+                <option value="cash">Cash</option>
+                <option value="venmo">Venmo</option>
+              </Select>
+              <Select
+                value={entry.sourceAccount}
+                onChange={(e) => setEntry((p) => ({ ...p, sourceAccount: e.target.value as any }))}
+              >
+                <option value="truist-zelle">Truist / Zelle</option>
+                <option value="paypal-business">PayPal Business</option>
+                <option value="other">Other</option>
+              </Select>
+              <Input
+                placeholder="Posting date"
+                type="date"
+                value={entry.postedAt}
+                onChange={(e) => setEntry((p) => ({ ...p, postedAt: e.target.value }))}
+              />
+              <Input
+                placeholder={entry.type === "income" ? "Payer name (optional)" : "Payee name (optional)"}
+                value={entry.type === "income" ? entry.payerName : entry.payee}
+                onChange={(e) =>
+                  setEntry((p) =>
+                    p.type === "income" ? { ...p, payerName: e.target.value } : { ...p, payee: e.target.value }
+                  )
+                }
+              />
+              <Input
+                placeholder="External reference (txn id / bank memo)"
+                value={entry.externalReference}
+                onChange={(e) => setEntry((p) => ({ ...p, externalReference: e.target.value }))}
+              />
+              <Input
+                placeholder="Description"
+                value={entry.description}
+                onChange={(e) => setEntry((p) => ({ ...p, description: e.target.value }))}
+              />
+            </div>
+            <div className="mt-3">
+              <Input
+                placeholder="Notes (optional)"
+                value={entry.notes}
+                onChange={(e) => setEntry((p) => ({ ...p, notes: e.target.value }))}
+              />
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button variant="dark" onClick={handleCreateLedgerEntry} disabled={savingEntry}>
+                {savingEntry ? "Saving..." : "Save Ledger Entry"}
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
 
         {/* Member-submitted payments (source of truth even if transactions ledger is empty) */}
         <Card>
@@ -477,6 +763,8 @@ export default function FinancialDashboard() {
                   <option value="all">All Status</option>
                   <option value="completed">Completed</option>
                   <option value="pending">Pending</option>
+                  <option value="verified">Verified</option>
+                  <option value="reconciled">Reconciled</option>
                   <option value="cancelled">Cancelled</option>
                   <option value="refunded">Refunded</option>
                 </Select>
@@ -555,6 +843,14 @@ export default function FinancialDashboard() {
                             <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 font-semibold bg-amber-50 text-amber-800 border-amber-200">
                               <Clock className="size-4" /> Pending
                             </span>
+                          ) : t.status === "verified" ? (
+                            <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 font-semibold bg-blue-50 text-blue-700 border-blue-200">
+                              <CheckCircle className="size-4" /> Verified
+                            </span>
+                          ) : t.status === "reconciled" ? (
+                            <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 font-semibold bg-indigo-50 text-indigo-700 border-indigo-200">
+                              <CheckCircle className="size-4" /> Reconciled
+                            </span>
                           ) : t.status === "cancelled" ? (
                             <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 font-semibold bg-rose-50 text-rose-700 border-rose-200">
                               <XCircle className="size-4" /> Cancelled
@@ -567,14 +863,45 @@ export default function FinancialDashboard() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           {t.status === "pending" ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={approvingId === t.id}
-                              onClick={() => handleApprove(t.id)}
-                            >
-                              {approvingId === t.id ? "Approving…" : "Approve"}
-                            </Button>
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={verifyingId === t.id}
+                                onClick={() => handleVerify(t.id)}
+                              >
+                                {verifyingId === t.id ? "Verifying…" : "Verify"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={approvingId === t.id}
+                                onClick={() => handleApprove(t.id)}
+                              >
+                                {approvingId === t.id ? "Approving…" : "Approve"}
+                              </Button>
+                            </div>
+                          ) : t.status === "verified" || t.status === "completed" ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={reconcilingId === t.id}
+                                onClick={() => handleReconcile(t.id)}
+                              >
+                                {reconcilingId === t.id ? "Reconciling…" : "Reconcile"}
+                              </Button>
+                              {t.type === "income" && t.status !== "refunded" ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={refundingId === t.id}
+                                  onClick={() => openRefundModal(t)}
+                                >
+                                  {refundingId === t.id ? "Refunding…" : "Refund"}
+                                </Button>
+                              ) : null}
+                            </div>
                           ) : (
                             "—"
                           )}
@@ -599,10 +926,71 @@ export default function FinancialDashboard() {
                 <Download className="size-5 mr-3" />
                 Export for CPA (CSV)
               </Button>
+              <Link href="/admin/financial/notifications">
+                <Button variant="outline" className="w-full justify-start">
+                  <Mail className="size-5 mr-3" />
+                  Request Payments / Notify Members
+                </Button>
+              </Link>
             </div>
           </CardBody>
         </Card>
       </div>
+      <Modal
+        open={refundModal.open}
+        onClose={() => setRefundModal({ open: false, tx: null, amount: "", reason: "", externalReference: "" })}
+        title="Record Refund"
+        maxWidthClassName="max-w-xl"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setRefundModal({ open: false, tx: null, amount: "", reason: "", externalReference: "" })}
+              disabled={Boolean(refundModal.tx && refundingId === refundModal.tx.id)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="dark"
+              onClick={submitRefundModal}
+              disabled={Boolean(refundModal.tx && refundingId === refundModal.tx.id)}
+            >
+              {refundModal.tx && refundingId === refundModal.tx.id ? "Saving..." : "Record Refund"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid gap-4">
+          <div className="text-sm text-slate-600">
+            Original transaction: <span className="font-mono">{refundModal.tx?.id ?? "—"}</span>
+          </div>
+          <div className="grid gap-2">
+            <div className="text-sm font-semibold text-slate-900">Refund Amount</div>
+            <Input
+              type="number"
+              value={refundModal.amount}
+              onChange={(e) => setRefundModal((p) => ({ ...p, amount: e.target.value }))}
+              placeholder="0.00"
+            />
+          </div>
+          <div className="grid gap-2">
+            <div className="text-sm font-semibold text-slate-900">Refund Reason</div>
+            <Input
+              value={refundModal.reason}
+              onChange={(e) => setRefundModal((p) => ({ ...p, reason: e.target.value }))}
+              placeholder="Reason for refund"
+            />
+          </div>
+          <div className="grid gap-2">
+            <div className="text-sm font-semibold text-slate-900">External Reference (optional)</div>
+            <Input
+              value={refundModal.externalReference}
+              onChange={(e) => setRefundModal((p) => ({ ...p, externalReference: e.target.value }))}
+              placeholder="PayPal refund id / bank memo"
+            />
+          </div>
+        </div>
+      </Modal>
     </RequireAdmin>
   );
 }
