@@ -891,7 +891,7 @@ export default function FinancialDashboard() {
                               >
                                 {reconcilingId === t.id ? "Reconciling…" : "Reconcile"}
                               </Button>
-                              {t.type === "income" && t.status !== "refunded" ? (
+                              {t.type === "income" ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
