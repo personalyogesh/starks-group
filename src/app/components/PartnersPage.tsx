@@ -41,6 +41,12 @@ const TYPE_LABEL: Record<PartnerType, string> = {
   media: "Media",
 };
 
+const OFFICIAL_2026_SPONSOR = {
+  name: "Hashtag India",
+  description: "Official and only sponsor for Starks Cricket in 2026.",
+  instagramUrl: "https://www.instagram.com/hashtagindia_cary_nc?igsh=MWI1em95NTFkMzVkbg==",
+};
+
 function safeHost(url?: string) {
   try {
     if (!url) return "";
@@ -182,6 +188,38 @@ export default function PartnersPage() {
       </section>
 
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
+        <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <CardBody>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-start gap-4">
+                <div className="relative h-16 w-36 rounded-2xl overflow-hidden border border-blue-200 bg-white shrink-0">
+                  <Image
+                    src="/partners/hashtag-india-optimized.png"
+                    alt="Hashtag India sponsor logo"
+                    fill
+                    className="object-contain p-1"
+                  />
+                </div>
+                <div>
+                  <div className="inline-flex items-center rounded-full bg-blue-100 text-blue-800 text-xs font-extrabold px-3 py-1 mb-3">
+                    2026 Official Sponsor
+                  </div>
+                  <h2 className="text-2xl font-extrabold text-slate-950">{OFFICIAL_2026_SPONSOR.name}</h2>
+                  <p className="text-slate-700 mt-2">{OFFICIAL_2026_SPONSOR.description}</p>
+                </div>
+              </div>
+              <div className="flex items-center">
+                <a href={OFFICIAL_2026_SPONSOR.instagramUrl} target="_blank" rel="noopener noreferrer">
+                  <Button variant="dark" className="min-w-[220px]">
+                    <Instagram className="size-4 mr-2" />
+                    Visit Instagram
+                  </Button>
+                </a>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
         {/* Top actions (admin only) */}
         {isAdmin && (
           <div className="flex justify-end">

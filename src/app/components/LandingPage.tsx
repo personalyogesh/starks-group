@@ -1,9 +1,8 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Award, Calendar, MessageCircle, Users } from "lucide-react";
+import { Award, Calendar, MapPin, MessageCircle, PhoneCall, Sparkles, Users } from "lucide-react";
 import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 
 import { listenCollection, EventDoc, LinkDoc, PostDoc, setRsvp } from "@/lib/firestore";
@@ -15,7 +14,7 @@ import Button from "@/components/ui/Button";
 import PostCard from "@/components/feed/PostCard";
 import LandingCarousel from "@/components/landing/LandingCarousel";
 import { AuthModal, AuthModalTrigger } from "@/app/components/AuthModal";
-import { getFeaturedPartners, Partner } from "@/lib/firebase/partnersService";
+import { getAllPartners, Partner } from "@/lib/firebase/partnersService";
 
 function QrWelcomeBanner() {
   const searchParams = useSearchParams();
@@ -57,6 +56,17 @@ export default function LandingPage() {
       limit: 10,
     });
   }, []);
+
+  const partnerTiles: Array<{ id: string; name: string; logoUrl?: string }> =
+    featuredPartners.length > 0
+      ? featuredPartners.map((p) => ({ id: p.id, name: p.name, logoUrl: p.logoUrl }))
+      : [
+          {
+            id: "fallback-hashtag-india",
+            name: "Hashtag India",
+            logoUrl: "/partners/hashtag-india-optimized.png",
+          },
+        ];
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     return listenCollection<LinkDoc>("links", setLinks, { limit: 10 });
@@ -80,8 +90,10 @@ export default function LandingPage() {
     (async () => {
       if (!isFirebaseConfigured) return;
       try {
-        const rows = await getFeaturedPartners();
-        if (!cancelled) setFeaturedPartners(rows.slice(0, 6));
+        const rows = await getAllPartners();
+        const featured = rows.filter((p) => p.featured);
+        const selected = (featured.length > 0 ? featured : rows).slice(0, 6);
+        if (!cancelled) setFeaturedPartners(selected);
       } catch {
         // ignore (partners are optional content)
       }
@@ -291,57 +303,86 @@ export default function LandingPage() {
       </section>
 
       {/* Partners Section - Enhanced with Real Data */}
-      <section className="px-4 py-16">
+      <section className="px-4 py-12 md:py-16">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-950 mb-4">Our Partners</h2>
-            <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto">
+          <div className="text-center mb-8 md:mb-10">
+            <h2 className="text-2xl md:text-4xl font-extrabold text-slate-950 mb-3 md:mb-4">Our Partners</h2>
+            <p className="text-base md:text-xl text-slate-600 max-w-2xl mx-auto">
               We&apos;re proud to partner with organizations that share our commitment to building stronger communities
               through cricket.
             </p>
           </div>
 
-          {featuredPartners.length > 0 ? (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
-                {featuredPartners.slice(0, 8).map((partner) => (
+          <div className="relative mb-8">
+            <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-fuchsia-400/30 via-blue-400/30 to-cyan-400/30 blur-lg md:blur-xl" />
+            <div className="relative rounded-3xl border border-blue-200 bg-gradient-to-r from-blue-50 via-white to-indigo-50 px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6 shadow-lg">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 md:gap-6">
+                <div className="flex items-center gap-3 md:gap-4">
                   <a
-                    key={partner.id}
                     href="/partners"
-                    className="group rounded-2xl border border-slate-200 bg-white p-6 flex items-center justify-center hover:shadow-lg transition-all cursor-pointer"
-                    title={partner.name}
+                    className="group shrink-0 rounded-2xl border border-slate-200 bg-white p-2.5 md:p-3 shadow-sm hover:shadow-md transition"
+                    title="Learn more about Hashtag India"
                   >
-                    {partner.logoUrl ? (
-                      <div className="relative h-16 w-full">
-                        <Image
-                          src={partner.logoUrl}
-                          alt={partner.name}
-                          fill
-                          className="object-contain grayscale group-hover:grayscale-0 transition-all"
-                        />
-                      </div>
-                    ) : (
-                      <Award className="size-10 text-slate-300" />
-                    )}
+                    <img
+                      src="/partners/hashtag-india-optimized.png"
+                      alt="Hashtag India"
+                      className="h-12 w-28 sm:h-14 sm:w-36 object-contain group-hover:scale-[1.03] transition"
+                      loading="lazy"
+                    />
                   </a>
-                ))}
-              </div>
-
-              <div className="text-center">
-                <a href="/partners">
-                  <Button variant="outline">View All Partners</Button>
-                </a>
-              </div>
-            </>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-10 flex items-center justify-center">
-                  <Award className="size-10 text-slate-300" />
+                  <div className="min-w-0">
+                    <div className="inline-flex items-center gap-1.5 md:gap-2 rounded-full bg-white/80 border border-blue-200 px-2.5 md:px-3 py-1 text-[10px] md:text-xs font-bold text-blue-700 uppercase tracking-wide">
+                      <Sparkles className="size-3 md:size-3.5" />
+                      2026 Sponsor Spotlight
+                    </div>
+                    <div className="mt-1.5 md:mt-2 text-xl md:text-2xl font-extrabold text-slate-900 leading-tight">
+                      Hashtag India
+                    </div>
+                    <div className="mt-1 text-xs sm:text-sm md:text-base text-slate-700">
+                      Proud partner of Starks Cricket
+                    </div>
+                  </div>
                 </div>
-              ))}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2.5 md:gap-3 w-full lg:w-auto">
+                  <div className="inline-flex items-center gap-2 rounded-xl bg-white border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700">
+                    <MapPin className="size-4 text-blue-600" />
+                    Cary, NC
+                  </div>
+                  <a
+                    href="https://www.instagram.com/hashtagindia_cary_nc?igsh=MWI1em95NTFkMzVkbg=="
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white px-4 py-2.5 text-sm font-bold hover:opacity-95 transition min-h-11"
+                    title="Visit Instagram"
+                  >
+                    Instagram
+                  </a>
+                  <a
+                    href="/partners"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 transition min-h-11"
+                    title="Learn more"
+                  >
+                    Learn More
+                  </a>
+                  <a
+                    href="tel:+19196501140"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 text-white px-4 py-2.5 text-sm font-bold hover:bg-slate-800 transition min-h-11"
+                    title="Call Hashtag India"
+                  >
+                    <PhoneCall className="size-4" />
+                    (919) 650-1140
+                  </a>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
+
+          <div className="text-center">
+            <a href="/partners">
+              <Button variant="outline">View All Partners</Button>
+            </a>
+          </div>
         </div>
       </section>
 
@@ -455,4 +496,6 @@ export default function LandingPage() {
     </div>
   );
 }
+
+// Partner tile grid intentionally removed to avoid repeating spotlight content.
 
