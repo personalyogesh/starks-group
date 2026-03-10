@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -115,7 +114,7 @@ export default function MemberProfilePage() {
               <div className="rounded-3xl border border-slate-200 bg-white p-4">
                 <div className="relative mx-auto h-44 w-44 overflow-hidden rounded-3xl border border-slate-200 bg-slate-100">
                   {doc.avatarUrl ? (
-                    <Image src={doc.avatarUrl} alt="" fill className="object-cover" />
+                    <img src={doc.avatarUrl} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center text-slate-500 text-sm">
                       No photo
