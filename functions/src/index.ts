@@ -326,14 +326,7 @@ export const submitIssueReport = onCall(async (request) => {
 });
 
 export const automaticBirthdayWishScheduler = onSchedule(
-<<<<<<< HEAD
-  {
-    schedule: "every 15 minutes",
-    timeZone: STARKS_TIME_ZONE,
-  },
-=======
   { schedule: "every 15 minutes", timeZone: STARKS_TIME_ZONE },
->>>>>>> da1d9f9 (pushing restored birthday automation and reminder flow)
   async () => {
     const result = await syncAutomaticBirthdayWishes();
     console.log("[automaticBirthdayWishScheduler]", result);
@@ -346,11 +339,7 @@ export const automaticBirthdayWishOnUserWrite = onDocumentWritten("users/{uid}",
   const user = after.data() as BirthdayUserDoc;
   const changed = await syncBirthdayWishForUser(event.params.uid, user);
   if (changed) {
-<<<<<<< HEAD
-    console.log("[automaticBirthdayWishOnUserWrite] created", { uid: event.params.uid });
-=======
     console.log("[automaticBirthdayWishOnUserWrite] synced", { uid: event.params.uid });
->>>>>>> da1d9f9 (pushing restored birthday automation and reminder flow)
   }
 });
 
