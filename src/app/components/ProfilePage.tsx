@@ -544,9 +544,12 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div className="sm:pb-2">
+                    <div className="flex flex-col gap-2 sm:items-end sm:pb-2">
                       <Button variant="dark" onClick={() => setTab("edit")} className="w-full sm:w-auto">
                         Edit Profile
+                      </Button>
+                      <Button variant="outline" onClick={() => router.push("/settings")} className="w-full sm:w-auto">
+                        Password & Security
                       </Button>
                     </div>
                   </div>
