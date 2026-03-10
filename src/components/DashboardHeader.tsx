@@ -12,7 +12,7 @@ import { UserAccountMenu } from "@/app/components/UserAccountMenu";
 import { MobileNav } from "@/app/components/MobileNav";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
-import { Award, Bell, DollarSign, Home, PlusCircle, Search } from "lucide-react";
+import { Award, Bell, DollarSign, Home, PlusCircle, Search, Users } from "lucide-react";
 import { MobileSidebar } from "@/app/components/MobileSidebar";
 
 function initialsFromName(name?: string | null) {
@@ -23,7 +23,14 @@ function initialsFromName(name?: string | null) {
 }
 
 function isActiveTopNav(pathname: string, href: string) {
-  if (href === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  if (href === "/community") {
+    return (
+      pathname === "/community" ||
+      pathname.startsWith("/community/") ||
+      pathname === "/dashboard" ||
+      pathname.startsWith("/dashboard/")
+    );
+  }
   if (href === "/partners") return pathname === "/partners" || pathname.startsWith("/partners/");
   if (href === "/payments") return pathname === "/payments" || pathname.startsWith("/payments/");
   return pathname === href;
@@ -67,7 +74,7 @@ export default function DashboardHeader() {
           <div className="flex items-center gap-6">
             <button
               type="button"
-              onClick={() => router.push(isAuthenticated ? "/dashboard" : "/")}
+              onClick={() => router.push("/")}
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
               aria-label="Go to home"
             >
@@ -83,15 +90,28 @@ export default function DashboardHeader() {
             <nav className="hidden lg:flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.push("/")}
                 className={[
                   "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition",
-                  isActiveTopNav(pathname, "/dashboard")
+                  isActiveTopNav(pathname, "/")
                     ? "bg-blue-50 text-blue-700"
                     : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
                 ].join(" ")}
               >
                 <Home className="size-4" />
+                Home
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/community")}
+                className={[
+                  "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition",
+                  isActiveTopNav(pathname, "/community")
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
+                ].join(" ")}
+              >
+                <Users className="size-4" />
                 Community
               </button>
               <button
@@ -164,8 +184,8 @@ export default function DashboardHeader() {
                   : undefined
               }
               onNavigate={(page) => {
-                if (page === "dashboard") return router.push("/dashboard");
-                if (page === "members" || page === "community") return router.push("/members");
+                if (page === "dashboard" || page === "community") return router.push("/community");
+                if (page === "members") return router.push("/members");
                 if (page === "events") return router.push("/events");
                 if (page === "videos") return router.push("/videos");
                 if (page === "partners") return router.push("/partners");

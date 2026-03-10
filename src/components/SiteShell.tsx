@@ -120,6 +120,8 @@ function BirthdayReminderBanner({ pathname }: { pathname: string }) {
 export default function SiteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAppShell =
+    pathname === "/community" ||
+    pathname.startsWith("/community/") ||
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
     pathname === "/create-post" ||

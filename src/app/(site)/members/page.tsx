@@ -104,7 +104,7 @@ export default function MembersPage() {
         </CardHeader>
         <CardBody>
           <div className="flex flex-wrap gap-3">
-            <Link href="/dashboard">
+            <Link href="/community">
               <Button>Explore Community Feed</Button>
             </Link>
             <Link href="/events">
@@ -141,9 +141,9 @@ export default function MembersPage() {
             ) : (
               <div className="space-y-3">
                 {posts.slice(0, 3).map(({ id, data }) => (
-                  <Link key={id} href="/dashboard" className="block rounded-xl border border-slate-200 p-3 hover:bg-slate-50">
+                  <Link key={id} href="/community" className="block rounded-xl border border-slate-200 p-3 hover:bg-slate-50">
                     <div className="font-semibold text-slate-900 truncate">{data.title || "Community Update"}</div>
-                    <div className="text-sm text-slate-600 line-clamp-2 mt-1">{data.body || data.content || "Open dashboard to view full post."}</div>
+                    <div className="text-sm text-slate-600 line-clamp-2 mt-1">{data.body || data.content || "Open community to view full post."}</div>
                   </Link>
                 ))}
               </div>
@@ -196,7 +196,7 @@ export default function MembersPage() {
                 <Link href="/admin/users" className="font-semibold text-blue-700 hover:underline">
                   Admin Users
                 </Link>{" "}
-                dashboard.
+                area.
               </p>
             </div>
           ) : (

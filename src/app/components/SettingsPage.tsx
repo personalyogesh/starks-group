@@ -156,7 +156,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <Button variant="outline" onClick={() => router.push("/dashboard")}>
+        <Button variant="outline" onClick={() => router.push("/community")}>
           <ArrowLeft className="size-4 mr-2" />
           Back
         </Button>

@@ -75,8 +75,8 @@ export default function VideosPage() {
           <h1 className="text-2xl font-extrabold tracking-tight">Videos</h1>
           <p className="text-slate-600 mt-1">Curated YouTube videos for the club.</p>
         </div>
-        <Link href="/dashboard">
-          <Button variant="outline">Back to Dashboard</Button>
+        <Link href="/community">
+          <Button variant="outline">Back to Community</Button>
         </Link>
       </div>
 

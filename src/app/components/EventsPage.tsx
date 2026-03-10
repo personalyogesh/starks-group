@@ -256,8 +256,8 @@ export default function EventsPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-extrabold tracking-tight text-slate-950">Upcoming Events</h2>
-          <Link className="text-sm font-semibold text-slate-700 hover:text-slate-900" href="/dashboard">
-            Back to dashboard →
+          <Link className="text-sm font-semibold text-slate-700 hover:text-slate-900" href="/community">
+            Back to community →
           </Link>
         </div>
 

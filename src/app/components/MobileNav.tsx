@@ -25,7 +25,14 @@ type NavItem = {
 function isActivePath(currentPathname: string, href: string) {
   // Normalize common “section” routes so subpages highlight the parent.
   if (href === "/") return currentPathname === "/";
-  if (href === "/dashboard") return currentPathname === "/dashboard" || currentPathname.startsWith("/dashboard/");
+  if (href === "/community") {
+    return (
+      currentPathname === "/community" ||
+      currentPathname.startsWith("/community/") ||
+      currentPathname === "/dashboard" ||
+      currentPathname.startsWith("/dashboard/")
+    );
+  }
   if (href === "/members") return currentPathname === "/members" || currentPathname.startsWith("/members/");
   if (href === "/events") return currentPathname === "/events" || currentPathname.startsWith("/events/");
   if (href === "/videos") return currentPathname === "/videos" || currentPathname.startsWith("/videos/");
@@ -48,10 +55,10 @@ export function MobileNav({
   const bottomItems = useMemo(
     () =>
       [
-        { label: "Home", href: "/dashboard", icon: <Home className="size-6" /> },
-        { label: "Search", href: "/dashboard?mobileSearch=1", icon: <Search className="size-6" /> },
+        { label: "Home", href: "/", icon: <Home className="size-6" /> },
+        { label: "Search", href: "/community?mobileSearch=1", icon: <Search className="size-6" /> },
         { label: "Create", href: "/create-post", icon: <PlusSquare className="size-6" /> },
-        { label: "Notifications", href: "/dashboard", icon: <Bell className="size-6" /> },
+        { label: "Notifications", href: "/notifications", icon: <Bell className="size-6" /> },
         { label: "Profile", href: "/profile", icon: <User className="size-6" /> },
       ] satisfies NavItem[],
     []
@@ -68,7 +75,7 @@ export function MobileNav({
         >
           <div className="flex items-center justify-around h-16 px-2">
             {bottomItems.map((item) => {
-              const isActive = pathname === item.href || (item.href.startsWith("/dashboard") && pathname === "/dashboard");
+              const isActive = isActivePath(pathname, item.href.split("?")[0] ?? item.href);
               return (
                 <Link
                   key={item.label}

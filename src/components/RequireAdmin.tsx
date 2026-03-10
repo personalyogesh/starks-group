@@ -12,7 +12,7 @@ export function RequireAdmin({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     if (!currentUser) return;
-    if (currentUser.userDoc?.role !== "admin") router.replace("/dashboard");
+    if (currentUser.userDoc?.role !== "admin") router.replace("/community");
   }, [loading, currentUser, router]);
 
   if (loading) return <LoadingSpinner message="Checking admin access..." />;

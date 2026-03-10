@@ -231,7 +231,7 @@ export default function RegisterPage() {
       const result = await loginWithGoogle();
       // Google users remain signed in, but are read-only until admin approval.
       setMsg({ kind: "success", text: "Signed in with Google! Awaiting admin approval." });
-      router.push(result.needsBirthday ? "/profile" : "/dashboard");
+      router.push(result.needsBirthday ? "/profile" : "/");
     } catch (err: any) {
       const text = err?.message ?? "Google sign-in failed";
       setMsg({ kind: "error", text });

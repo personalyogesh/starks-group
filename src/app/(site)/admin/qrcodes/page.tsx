@@ -48,7 +48,7 @@ export default function AdminQRCodesPage() {
     if (!t) return null;
     // Quick guard for common member-only routes; these will redirect unauthenticated/pending users.
     const lower = t.toLowerCase();
-    if (lower.includes("/dashboard") || lower.includes("/create-post") || lower.includes("/profile")) {
+    if (lower.includes("/community") || lower.includes("/dashboard") || lower.includes("/create-post") || lower.includes("/profile")) {
       return "Heads up: this link looks like a member-only page. For public sharing, use Home/Login/Register.";
     }
     return null;

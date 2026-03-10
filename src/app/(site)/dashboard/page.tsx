@@ -1,2 +1,6 @@
-export { default } from "@/app/components/UserDashboard";
+import { redirect } from "next/navigation";
+
+export default function DashboardPage() {
+  redirect("/community");
+}
 
