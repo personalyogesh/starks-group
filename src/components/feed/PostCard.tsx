@@ -64,7 +64,6 @@ export default function PostCard({
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [saved, setSaved] = useState(false);
-  const [saveCount, setSaveCount] = useState(0);
   const [comments, setComments] = useState<Array<{ id: string; data: CommentDoc }>>([]);
   const [commentText, setCommentText] = useState("");
   const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
@@ -122,19 +121,6 @@ export default function PostCard({
       }
     );
   }, [postId, uid]);
-
-  useEffect(() => {
-    if (!isFirebaseConfigured) return;
-    const savesRef = collection(db, "posts", postId, "saves");
-    return onSnapshot(
-      savesRef,
-      (snap) => setSaveCount(snap.size),
-      (err) => {
-        console.warn("[PostCard] saves count listener error", { postId, err });
-        setSaveCount(0);
-      }
-    );
-  }, [postId]);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -378,7 +364,7 @@ export default function PostCard({
                 title={saved ? "Remove bookmark" : "Save / bookmark"}
               >
                 <span className={saved ? "text-slate-900" : "text-slate-500"}>{saved ? "🔖" : "📑"}</span>{" "}
-                Save <span className="text-slate-400">({saveCount})</span>
+                {saved ? "Saved" : "Save"}
               </button>
 
               <button

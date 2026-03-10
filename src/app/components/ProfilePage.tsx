@@ -319,7 +319,7 @@ export default function ProfilePage() {
     setUploadingAvatar(true);
     try {
       const ext = (avatarFile.name.split(".").pop() || "jpg").toLowerCase();
-      const storagePath = `profile-pictures/${uid}/${Date.now()}.${ext}`;
+      const storagePath = `profiles/${uid}/${Date.now()}.${ext}`;
       const storageRef = ref(storage, storagePath);
       await uploadBytes(storageRef, avatarFile, { contentType: avatarFile.type });
       const url = await getDownloadURL(storageRef);
@@ -438,8 +438,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen">
-      <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8 space-y-6">
         <Breadcrumbs
           items={[
             { label: "Dashboard", href: "/dashboard" },
@@ -471,71 +470,71 @@ export default function ProfilePage() {
         <Card>
           <CardBody>
             <div className="rounded-3xl overflow-hidden border border-slate-200 bg-white">
-              <div className="h-44 md:h-56 bg-gradient-to-r from-blue-500 to-indigo-600 relative">
+              <div className="h-32 sm:h-40 md:h-56 bg-gradient-to-r from-blue-500 to-indigo-600 relative">
                 {/* Cover editing hidden until implemented (avoid dead buttons). */}
               </div>
 
-              <div className="px-6 pb-6">
-                <div className="relative -mt-16 md:-mt-20 flex items-end justify-between gap-4">
-                  <div className="flex items-end gap-4">
-                    <div className="relative h-32 w-32 md:h-40 md:w-40 rounded-full border-4 border-white shadow-sm overflow-hidden bg-slate-100">
-                      {currentAvatar ? (
-                        <Image src={currentAvatar} alt="Profile photo" fill className="object-cover" />
-                      ) : (
-                        <div className="h-full w-full grid place-items-center text-slate-500 text-sm">No photo</div>
-                      )}
-                      <button
-                        type="button"
-                        className="absolute -right-1 -bottom-1 h-12 w-12 rounded-full bg-slate-950 text-white grid place-items-center border-4 border-white"
-                        aria-label="Edit profile picture"
-                        onClick={() => {
-                          setTab("edit");
-                          fileRef.current?.click();
-                        }}
-                        disabled={uploadingAvatar || saving}
-                        title="Change photo"
-                      >
-                        {uploadingAvatar ? "…" : "📷"}
-                      </button>
-                    </div>
-
-                    <div className="pb-2">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-950">
-                          {(userDoc?.firstName || userDoc?.lastName)
-                            ? `${userDoc?.firstName ?? ""} ${userDoc?.lastName ?? ""}`.trim()
-                            : userDoc?.name ?? "Member"}
-                        </div>
-                        <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700">
-                          {isAdmin ? "Admin" : "Member"}
-                        </span>
-                        {userDoc?.status !== "approved" && (
-                          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
-                            Pending Approval
-                          </span>
+              <div className="px-4 pb-5 sm:px-6 sm:pb-6">
+                <div className="relative -mt-12 sm:-mt-16 md:-mt-20">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                      <div className="relative h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 rounded-full border-4 border-white shadow-sm overflow-hidden bg-slate-100">
+                        {currentAvatar ? (
+                          <Image src={currentAvatar} alt="Profile photo" fill className="object-cover" />
+                        ) : (
+                          <div className="h-full w-full grid place-items-center text-slate-500 text-sm">No photo</div>
                         )}
+                        <button
+                          type="button"
+                          className="absolute -right-1 -bottom-1 h-12 w-12 rounded-full bg-slate-950 text-white grid place-items-center border-4 border-white"
+                          aria-label="Edit profile picture"
+                          onClick={() => {
+                            setTab("edit");
+                            fileRef.current?.click();
+                          }}
+                          disabled={uploadingAvatar || saving}
+                          title="Change photo"
+                        >
+                          {uploadingAvatar ? "…" : "📷"}
+                        </button>
                       </div>
 
-                      <div className="mt-2 text-slate-600 space-y-1">
-                        <div className="text-sm">{(userDoc?.bio ?? "").slice(0, 100) || "—"}</div>
-                        <div className="text-sm flex flex-wrap gap-x-4 gap-y-1">
-                          <span>📍 {userDoc?.location ?? "—"}</span>
-                          <span>📅 Joined {joined}</span>
-                          <span>✉️ {user.email}</span>
+                      <div className="min-w-0 sm:pb-2">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-950 break-words">
+                            {(userDoc?.firstName || userDoc?.lastName)
+                              ? `${userDoc?.firstName ?? ""} ${userDoc?.lastName ?? ""}`.trim()
+                              : userDoc?.name ?? "Member"}
+                          </div>
+                          <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700">
+                            {isAdmin ? "Admin" : "Member"}
+                          </span>
+                          {userDoc?.status !== "approved" && (
+                            <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+                              Pending Approval
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-2 space-y-1 text-slate-600">
+                          <div className="text-sm break-words">{(userDoc?.bio ?? "").slice(0, 100) || "—"}</div>
+                          <div className="flex flex-col gap-1 text-sm sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-1">
+                            <span>📍 {userDoc?.location ?? "—"}</span>
+                            <span>📅 Joined {joined}</span>
+                            <span>✉️ {user.email}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
+
+                    <div className="sm:pb-2">
+                      <Button variant="dark" onClick={() => setTab("edit")} className="w-full sm:w-auto">
+                        Edit Profile
+                      </Button>
+                    </div>
                   </div>
 
-                  <div className="pb-2">
-                    <Button variant="dark" onClick={() => setTab("edit")}>
-                      Edit Profile
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
                   <Stat title="Connections" value={connectionsCount} />
                   <Stat title="Posts" value={postsCount} />
                   <Stat title="Events" value={eventsCount} />
@@ -543,12 +542,13 @@ export default function ProfilePage() {
                   <Stat title="Comments" value={commentsReceived} />
                 </div>
               </div>
+              </div>
             </div>
           </CardBody>
         </Card>
 
         {/* Tabs */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1">
           <TabButton active={tab === "posts"} onClick={() => setTab("posts")}>Posts</TabButton>
           <TabButton active={tab === "about"} onClick={() => setTab("about")}>About</TabButton>
           <TabButton active={tab === "achievements"} onClick={() => setTab("achievements")}>Achievements</TabButton>
@@ -824,7 +824,6 @@ export default function ProfilePage() {
             </CardBody>
           </Card>
         )}
-      </div>
     </div>
   );
 }
@@ -835,7 +834,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
       type="button"
       onClick={onClick}
       className={[
-        "px-4 py-2 rounded-2xl border text-sm font-semibold transition",
+        "shrink-0 px-4 py-2 rounded-2xl border text-sm font-semibold transition",
         active ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
       ].join(" ")}
     >

@@ -33,6 +33,8 @@ function mapAuthError(err: any): string {
   if (code === "auth/user-not-found") return "Account not found";
   if (code === "auth/too-many-requests") return "Too many attempts. Try again later";
   if (code === "auth/network-request-failed") return "Network error. Please try again.";
+  if (code === "auth/unauthorized-domain") return "Google sign-in is not enabled for this site yet.";
+  if (code === "auth/operation-not-allowed") return "Google sign-in is not enabled in Firebase yet.";
   return err?.message ?? "Login failed";
 }
 
@@ -67,7 +69,9 @@ export default function LoginPage() {
   // Auto-redirect if already signed in
   useEffect(() => {
     if (loading) return;
-    if (currentUser) router.replace("/dashboard");
+    if (currentUser) {
+      router.replace(currentUser.userDoc?.birthMonth && currentUser.userDoc?.birthDay ? "/dashboard" : "/profile");
+    }
   }, [loading, currentUser, router]);
 
   // surface auth gating messages (e.g. suspension)
