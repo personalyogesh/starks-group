@@ -179,8 +179,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Account deactivated");
     }
     const latestDoc = await getUser(cred.user.uid);
-    const needsBirthday = !latestDoc?.birthMonth || !latestDoc?.birthDay;
-    return { needsBirthday };
+    return { needsBirthday: !latestDoc?.birthMonth || !latestDoc?.birthDay };
   };
 
   const logout = async () => {

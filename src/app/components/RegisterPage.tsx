@@ -478,7 +478,6 @@ export default function RegisterPage() {
               </Select>
               {errors.birthMonth?.message && <div className="text-sm text-rose-700">{errors.birthMonth.message}</div>}
             </div>
-
             <div className="grid gap-3">
               <label className="text-xl font-semibold text-slate-950">Birth Day</label>
               <Select className="bg-slate-100 border-slate-100 focus:border-brand-primary" {...register("birthDay")}>

@@ -75,14 +75,8 @@ export const profileEditSchema = z.object({
     .string()
     .transform((v) => v.replace(/\D/g, ""))
     .refine((v) => v.length === 10, "Phone number must be 10 digits"),
-  birthMonth: z
-    .union([z.literal(""), z.coerce.number().int().min(1).max(12)])
-    .optional()
-    .default(""),
-  birthDay: z
-    .union([z.literal(""), z.coerce.number().int().min(1).max(31)])
-    .optional()
-    .default(""),
+  birthMonth: z.union([z.literal(""), z.coerce.number().int().min(1).max(12)]).optional().default(""),
+  birthDay: z.union([z.literal(""), z.coerce.number().int().min(1).max(31)]).optional().default(""),
   // Use explicit key+value schemas so the input type doesn't degrade to Record<PropertyKey, unknown>.
   sportsInterests: z.record(z.string(), z.boolean()).optional().default({}),
   goals: z.string().optional().default(""),

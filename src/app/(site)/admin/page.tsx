@@ -147,6 +147,10 @@ export default function AdminPage() {
 
   const pageCount = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const pageUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const missingBirthdayUsers = useMemo(
+    () => users.filter(({ data }) => !data.birthMonth || !data.birthDay),
+    [users]
+  );
 
   const fmt = (n: number | null) =>
     typeof n === "number" ? n.toLocaleString() : "—";
@@ -235,6 +239,45 @@ export default function AdminPage() {
             danger={(stats.pendingApprovals ?? 0) > 0}
           />
         </div>
+
+        <Card>
+          <CardHeader>
+            <div className="font-bold text-lg">Birthday Tracking</div>
+            <div className="text-sm text-slate-600 mt-1">
+              Members need both birth month and birth day saved for automatic homepage wishes.
+            </div>
+          </CardHeader>
+          <CardBody>
+            {missingBirthdayUsers.length === 0 ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                All current members have birthday information saved.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  {missingBirthdayUsers.length} member{missingBirthdayUsers.length === 1 ? "" : "s"} still need to add
+                  birthday details.
+                </div>
+                <div className="grid gap-3">
+                  {missingBirthdayUsers.slice(0, 12).map(({ id, data }) => (
+                    <div
+                      key={id}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4"
+                    >
+                      <div>
+                        <div className="font-semibold text-slate-900">{data.name}</div>
+                        <div className="text-sm text-slate-600">{data.email}</div>
+                      </div>
+                      <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+                        Missing birthday
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardBody>
+        </Card>
 
         {/* Main grid */}
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
