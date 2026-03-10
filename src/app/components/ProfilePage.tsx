@@ -88,6 +88,11 @@ function selectedSports(map: Record<string, boolean>) {
     .map(([k]) => k);
 }
 
+function keepExistingString(nextValue: string | undefined, existingValue?: string) {
+  const trimmed = (nextValue ?? "").trim();
+  return trimmed || existingValue || undefined;
+}
+
 export default function ProfilePage() {
   const { toast } = useToast();
   const { currentUser, loading, updateProfile } = useAuth();
@@ -358,7 +363,9 @@ export default function ProfilePage() {
       const fullPhoneNumber = `${countryCode}${phoneDigits}`;
 
       const sports = selectedSports(data.sportsInterests ?? {});
-      const primarySport = sports[0] ?? userDoc.sportInterest ?? "Cricket";
+      const existingSports = userDoc.sportsInterests ?? (userDoc.sportInterest ? [userDoc.sportInterest] : []);
+      const nextSports = sports.length > 0 ? sports : existingSports;
+      const primarySport = nextSports[0] ?? userDoc.sportInterest ?? "Cricket";
 
       // email update (Auth + Firestore)
       if (emailLower && emailLower !== (user.email ?? "").toLowerCase()) {
@@ -378,17 +385,23 @@ export default function ProfilePage() {
         lastName,
         name: `${firstName} ${lastName}`.trim() || userDoc.name,
         email: emailLower || userDoc.email,
-        birthMonth: data.birthMonth === "" || data.birthMonth == null ? undefined : Number(data.birthMonth),
-        birthDay: data.birthDay === "" || data.birthDay == null ? undefined : Number(data.birthDay),
-        bio: (data.bio ?? "").trim().slice(0, 100) || undefined,
-        location: (data.location ?? "").trim() || undefined,
+        birthMonth:
+          data.birthMonth === "" || data.birthMonth == null
+            ? userDoc.birthMonth
+            : Number(data.birthMonth),
+        birthDay:
+          data.birthDay === "" || data.birthDay == null
+            ? userDoc.birthDay
+            : Number(data.birthDay),
+        bio: keepExistingString((data.bio ?? "").trim().slice(0, 100), userDoc.bio),
+        location: keepExistingString(data.location, userDoc.location),
         countryCode,
         phoneNumber: phoneDigits,
         fullPhoneNumber,
         phone: fullPhoneNumber,
-        sportsInterests: sports,
+        sportsInterests: nextSports,
         sportInterest: primarySport,
-        goals: (data.goals ?? "").trim() || undefined,
+        goals: keepExistingString(data.goals, userDoc.goals),
         ...(avatar?.url ? { avatarUrl: avatar.url } : {}),
         ...(avatar?.storagePath ? { avatarStoragePath: avatar.storagePath } : {}),
       };
