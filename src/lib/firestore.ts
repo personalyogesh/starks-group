@@ -32,6 +32,11 @@ export type UserDoc = {
   firstName?: string;
   lastName?: string;
   email: string;
+  birthMonth?: number;
+  birthDay?: number;
+  lastBirthdayWishYear?: number;
+  lastBirthdayWishType?: "birthday" | "belated";
+  lastBirthdayWishPostedAt?: any;
   countryCode?: string;
   phoneNumber?: string; // 10-digit national number (digits only)
   fullPhoneNumber?: string; // countryCode + phoneNumber
@@ -153,6 +158,20 @@ export type CarouselSlideDoc = {
   storagePath?: string;
   createdAt: any;
   createdBy: string;
+};
+
+export type BirthdayWishDoc = {
+  userId: string;
+  firstName: string;
+  message: string;
+  birthMonth: number;
+  birthDay: number;
+  wishType: "birthday" | "belated";
+  wishYear: number;
+  displayDateKey?: string;
+  postedAt: any;
+  postedBy: string;
+  source?: "automatic" | "admin";
 };
 
 // --- Finance / Payments ---
