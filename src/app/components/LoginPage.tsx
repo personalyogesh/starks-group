@@ -183,9 +183,9 @@ export default function LoginPage() {
     setSubmitting(true);
     setMsg(null);
     try {
-      await loginWithGoogle();
+      const result = await loginWithGoogle();
       setMsg({ kind: "success", text: "Signed in. Redirecting..." });
-      router.push("/dashboard");
+      router.push(result.needsBirthday ? "/profile" : "/dashboard");
       setFailCount(0);
     } catch (err: any) {
       setMsg({ kind: "error", text: err?.message ?? "Google sign-in failed" });

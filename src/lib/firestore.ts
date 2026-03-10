@@ -6,6 +6,7 @@ import {
   arrayUnion,
   collection,
   collectionGroup,
+  deleteField,
   deleteDoc,
   doc,
   getDoc,
@@ -674,7 +675,10 @@ export async function deleteComment(postId: string, commentId: string) {
 }
 
 export async function updateUserProfile(uid: string, patch: Partial<UserDoc>) {
-  await updateDoc(doc(db, "users", uid), stripUndefined({ ...patch, updatedAt: serverTimestamp() }));
+  const normalizedPatch = Object.fromEntries(
+    Object.entries(patch).map(([key, value]) => [key, value === undefined ? deleteField() : value])
+  );
+  await updateDoc(doc(db, "users", uid), stripUndefined({ ...normalizedPatch, updatedAt: serverTimestamp() }));
 }
 
 export async function touchLastLogin(uid: string) {

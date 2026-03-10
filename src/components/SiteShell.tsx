@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { AuthProvider } from "@/lib/AuthContext";
 import { useAuth } from "@/lib/AuthContext";
@@ -34,6 +35,88 @@ function AppShellMain({ children }: { children: React.ReactNode }) {
   return <main className={["flex-1", padForBottomNav ? "pb-20 md:pb-0" : ""].join(" ")}>{children}</main>;
 }
 
+function BirthdayReminderBanner({ pathname }: { pathname: string }) {
+  const { currentUser } = useAuth();
+  const userDoc = currentUser?.userDoc ?? null;
+  const isMissingBirthday = Boolean(currentUser && (!userDoc?.birthMonth || !userDoc?.birthDay));
+  const [showPromptCard, setShowPromptCard] = useState(false);
+
+  useEffect(() => {
+    if (!isMissingBirthday || pathname === "/profile") {
+      setShowPromptCard(false);
+      return;
+    }
+    const dismissKey = `starks:birthdayReminderDismissed:${currentUser?.authUser.uid ?? "guest"}`;
+    const dismissedAt = typeof window !== "undefined" ? window.localStorage.getItem(dismissKey) : null;
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const shouldShowCard = !dismissedAt || now - Number(dismissedAt) > oneDayMs;
+    setShowPromptCard(shouldShowCard);
+  }, [isMissingBirthday, pathname, currentUser?.authUser.uid]);
+
+  if (!isMissingBirthday || pathname === "/profile") return null;
+
+  const dismissPromptCard = () => {
+    const dismissKey = `starks:birthdayReminderDismissed:${currentUser?.authUser.uid ?? "guest"}`;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(dismissKey, String(Date.now()));
+    }
+    setShowPromptCard(false);
+  };
+
+  return (
+    <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <div className="mx-auto flex max-w-6xl flex-col gap-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>Add your birthday month and day so Starks can celebrate you on the home page.</div>
+          <div>
+            <Link
+              href="/profile"
+              className="inline-flex items-center rounded-xl border border-amber-300 bg-white px-4 py-2 font-semibold text-amber-900 hover:bg-amber-100"
+            >
+              Complete Birthday Info
+            </Link>
+          </div>
+        </div>
+
+        {showPromptCard && (
+          <div className="rounded-2xl border border-amber-300 bg-white px-4 py-4 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="max-w-2xl">
+                <div className="text-sm font-extrabold uppercase tracking-[0.14em] text-amber-700">
+                  Profile Update Needed
+                </div>
+                <div className="mt-1 text-base font-semibold text-slate-900">
+                  Add your birthday so we can celebrate you automatically.
+                </div>
+                <div className="mt-1 text-sm leading-6 text-slate-600">
+                  It only takes a moment. Open your profile, choose your birth month and birth day, and save once.
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href="/profile"
+                  className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2 font-semibold text-white hover:bg-slate-800"
+                >
+                  Update Profile
+                </Link>
+                <button
+                  type="button"
+                  onClick={dismissPromptCard}
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Remind Me Tomorrow
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SiteShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAppShell =
@@ -62,6 +145,8 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
           ) : (
             <Navbar />
           )}
+
+          <BirthdayReminderBanner pathname={pathname} />
 
           {isAppShell ? (
             <AppShellMain>{children}</AppShellMain>

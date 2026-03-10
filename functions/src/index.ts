@@ -21,6 +21,21 @@ type BirthdayUserDoc = {
   lastBirthdayWishType?: BirthdayWishType;
 };
 
+function requireAuth(context: any) {
+  if (!context.auth?.uid) throw new HttpsError("unauthenticated", "Login required.");
+  return context.auth.uid as string;
+}
+
+function requireAdminClaim(context: any) {
+  if (context.auth?.token?.admin !== true) {
+    throw new HttpsError("permission-denied", "Admin privileges required.");
+  }
+}
+
+function getCurrentFiscalYear(): number {
+  return new Date().getFullYear();
+}
+
 function getTodayParts(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: STARKS_TIME_ZONE,
@@ -155,47 +170,27 @@ async function syncAutomaticBirthdayWishes() {
   const existingAutomatic = await db.collection("birthdayWishes").where("source", "==", "automatic").get();
 
   let deleted = 0;
-  for (const doc of existingAutomatic.docs) {
-    const data = doc.data() as { wishType?: BirthdayWishType; wishYear?: number; displayDateKey?: string };
+  for (const wishDoc of existingAutomatic.docs) {
+    const data = wishDoc.data() as { wishType?: BirthdayWishType; wishYear?: number; displayDateKey?: string };
     const isTodayBirthdayDoc = data.wishType === "birthday" && data.displayDateKey === todayKey;
     const isCurrentYearBelatedDoc = data.wishType === "belated" && data.wishYear === today.year;
     if (isTodayBirthdayDoc || isCurrentYearBelatedDoc) continue;
-    await doc.ref.delete();
+    await wishDoc.ref.delete();
     deleted += 1;
   }
 
   const snap = await db.collection("users").where("status", "==", "approved").get();
-
   let created = 0;
-  for (const doc of snap.docs) {
-    const changed = await syncBirthdayWishForUser(doc.id, doc.data() as BirthdayUserDoc, today);
+  for (const userDoc of snap.docs) {
+    const changed = await syncBirthdayWishForUser(userDoc.id, userDoc.data() as BirthdayUserDoc, today);
     if (changed) created += 1;
   }
 
   return { created, deleted, scanned: snap.size, year: today.year, month: today.month, day: today.day };
 }
 
-function requireAuth(context: any) {
-  if (!context.auth?.uid) throw new HttpsError("unauthenticated", "Login required.");
-  return context.auth.uid as string;
-}
-
-function requireAdminClaim(context: any) {
-  if (context.auth?.token?.admin !== true) {
-    throw new HttpsError("permission-denied", "Admin privileges required.");
-  }
-}
-
-function getCurrentFiscalYear(): number {
-  // Starks fiscal year = calendar year Jan 1 → Dec 31
-  return new Date().getFullYear();
-}
-
 export const adminBootstrapAdminClaim = onCall(async (request) => {
   const uid = requireAuth(request);
-  // Bootstrap rule: user must already be marked admin in Firestore.
-  // This makes setup simple: set users/{uid}.role = "admin" once (via console),
-  // then call this to sync the Auth custom claim for Storage Rules.
   const userSnap = await admin.firestore().doc(`users/${uid}`).get();
   const role = String(userSnap.data()?.role ?? "");
   if (role !== "admin") {
@@ -218,14 +213,12 @@ export const adminSetUserRole = onCall(async (request) => {
   if (!uid) throw new HttpsError("invalid-argument", "uid is required");
   if (!["admin", "member"].includes(role)) throw new HttpsError("invalid-argument", "role must be admin|member");
 
-  // Keep Firestore role + Auth claims in sync
   await admin.firestore().doc(`users/${uid}`).set({ role }, { merge: true });
   await admin.auth().setCustomUserClaims(uid, { admin: role === "admin" });
 
   return { ok: true };
 });
 
-// Keep your existing placeholder name stable
 export const adminDeleteAuthUser = onCall(async (request) => {
   requireAuth(request);
   requireAdminClaim(request);
@@ -235,8 +228,6 @@ export const adminDeleteAuthUser = onCall(async (request) => {
   return { ok: true };
 });
 
-// Members record a payment they made (PayPal/Zelle/Venmo/etc).
-// This creates a `transactions` doc server-side (Admin SDK), so it will show up in the admin financial dashboard.
 export const createMemberIncomeTransaction = onCall(async (request) => {
   const uid = requireAuth(request);
   const data = request.data ?? {};
@@ -259,7 +250,6 @@ export const createMemberIncomeTransaction = onCall(async (request) => {
   if (!category) throw new HttpsError("invalid-argument", "category is required");
   if (!description) throw new HttpsError("invalid-argument", "description is required");
 
-  // Load user email if available (transactions are admin-only readable except the payer).
   const user = await admin.auth().getUser(uid).catch(() => null);
   const payerEmail = user?.email ?? null;
 
@@ -272,7 +262,7 @@ export const createMemberIncomeTransaction = onCall(async (request) => {
     subcategory,
     amount,
     method,
-    status: "pending", // always pending until admin confirms
+    status: "pending",
     description,
     payerId: uid,
     payerName: payerName || null,
@@ -288,19 +278,11 @@ export const createMemberIncomeTransaction = onCall(async (request) => {
     metadata: data.metadata ?? null,
   });
 
-  // Optional audit log (admin-only readable in rules)
   await admin.firestore().collection("auditLogs").add({
     action: "create_member_income_transaction",
     performedBy: uid,
     targetId: txRef.id,
-    changes: {
-      amount,
-      method,
-      purpose,
-      category,
-      subcategory,
-      description,
-    },
+    changes: { amount, method, purpose, category, subcategory, description },
     ipAddress: "N/A",
     timestamp: now,
   });
@@ -344,10 +326,7 @@ export const submitIssueReport = onCall(async (request) => {
 });
 
 export const automaticBirthdayWishScheduler = onSchedule(
-  {
-    schedule: "every 15 minutes",
-    timeZone: STARKS_TIME_ZONE,
-  },
+  { schedule: "every 15 minutes", timeZone: STARKS_TIME_ZONE },
   async () => {
     const result = await syncAutomaticBirthdayWishes();
     console.log("[automaticBirthdayWishScheduler]", result);
@@ -360,7 +339,7 @@ export const automaticBirthdayWishOnUserWrite = onDocumentWritten("users/{uid}",
   const user = after.data() as BirthdayUserDoc;
   const changed = await syncBirthdayWishForUser(event.params.uid, user);
   if (changed) {
-    console.log("[automaticBirthdayWishOnUserWrite] created", { uid: event.params.uid });
+    console.log("[automaticBirthdayWishOnUserWrite] synced", { uid: event.params.uid });
   }
 });
 

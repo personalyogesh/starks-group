@@ -2,10 +2,10 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Award, Calendar, MapPin, MessageCircle, PhoneCall, Sparkles, Users } from "lucide-react";
+import { Award, Calendar, Gift, MapPin, MessageCircle, PhoneCall, Sparkles, Users } from "lucide-react";
 import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 
-import { listenCollection, EventDoc, LinkDoc, PostDoc, setRsvp } from "@/lib/firestore";
+import { listenCollection, BirthdayWishDoc, EventDoc, LinkDoc, PostDoc, setRsvp } from "@/lib/firestore";
 import { useAuth } from "@/lib/AuthContext";
 import { db, isFirebaseConfigured } from "@/lib/firebaseClient";
 
@@ -35,6 +35,17 @@ function QrWelcomeBanner() {
   );
 }
 
+function getTodayDisplayDateKey() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const partValue = (type: "year" | "month" | "day") => parts.find((part) => part.type === type)?.value ?? "00";
+  return `${partValue("year")}-${partValue("month")}-${partValue("day")}`;
+}
+
 export default function LandingPage() {
   const { currentUser } = useAuth();
   const user = currentUser?.authUser ?? null;
@@ -46,7 +57,18 @@ export default function LandingPage() {
   const [events, setEvents] = useState<Array<{ id: string; data: EventDoc }>>([]);
   const [links, setLinks] = useState<Array<{ id: string; data: LinkDoc }>>([]);
   const [posts, setPosts] = useState<Array<{ id: string; data: PostDoc }>>([]);
+  const [birthdayWishes, setBirthdayWishes] = useState<Array<{ id: string; data: BirthdayWishDoc }>>([]);
   const [featuredPartners, setFeaturedPartners] = useState<Partner[]>([]);
+  const todayDisplayDateKey = getTodayDisplayDateKey();
+  const currentWishYear = Number(todayDisplayDateKey.slice(0, 4));
+
+  const todayBirthdayWishes = birthdayWishes
+    .filter(({ data }) => data.wishType === "birthday" && data.displayDateKey === todayDisplayDateKey)
+    .slice(0, 6);
+
+  const belatedBirthdayWishes = birthdayWishes
+    .filter(({ data }) => data.wishType === "belated" && data.wishYear === currentWishYear)
+    .slice(0, 6);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -83,6 +105,15 @@ export default function LandingPage() {
         setPosts([]);
       }
     );
+  }, []);
+
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    return listenCollection<BirthdayWishDoc>("birthdayWishes", setBirthdayWishes, {
+      orderByField: "postedAt",
+      direction: "desc",
+      limit: 24,
+    });
   }, []);
 
   useEffect(() => {
@@ -241,6 +272,74 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {(todayBirthdayWishes.length > 0 || belatedBirthdayWishes.length > 0) && (
+        <section>
+          <div className="overflow-hidden rounded-[28px] border border-pink-200 bg-gradient-to-r from-pink-50 via-rose-50 to-amber-50 shadow-[0_12px_36px_rgba(244,114,182,0.12)]">
+            <div className="p-5 sm:p-6 lg:p-8">
+              <div className="max-w-3xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white/80 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.16em] text-pink-700">
+                  <Gift className="size-4" />
+                  Birthday Wishes
+                </div>
+                <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
+                  Celebrating our Starks members
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">
+                  Same-day wishes appear automatically on birthdays, and belated wishes help us catch members whose
+                  birthdays already passed before they added their details this year.
+                </p>
+              </div>
+
+              <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                {todayBirthdayWishes.length > 0 && (
+                  <div className="rounded-[24px] border border-white/80 bg-white/75 p-4 shadow-sm backdrop-blur sm:p-5">
+                    <div className="text-sm font-extrabold uppercase tracking-[0.14em] text-pink-700">
+                      Today&apos;s Birthday Wishes
+                    </div>
+                    <div className="mt-4 grid gap-3">
+                      {todayBirthdayWishes.map(({ id, data }) => (
+                        <div key={id} className="rounded-2xl border border-white/80 bg-white/90 px-4 py-4 shadow-sm backdrop-blur">
+                          <div className="text-base font-bold text-slate-950">
+                            {data.message} <span aria-hidden="true">🎂</span>
+                          </div>
+                          <div className="mt-1 text-sm text-slate-600">
+                            Wishing {data.firstName} a fantastic day from the Starks community.
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {belatedBirthdayWishes.length > 0 && (
+                  <div className="rounded-[24px] border border-amber-200 bg-amber-50/80 p-4 shadow-sm sm:p-5">
+                    <div className="text-sm font-extrabold uppercase tracking-[0.14em] text-amber-700">
+                      Belated Birthday Wishes
+                    </div>
+                    <div className="mt-2 text-sm leading-6 text-slate-600">
+                      A one-time catch-up for members whose birthdays already happened this year before they added or
+                      updated their birthday details.
+                    </div>
+                    <div className="mt-4 grid gap-3">
+                      {belatedBirthdayWishes.map(({ id, data }) => (
+                        <div key={id} className="rounded-2xl border border-amber-200 bg-white px-4 py-4 shadow-sm">
+                          <div className="text-base font-bold text-slate-950">
+                            {data.message} <span aria-hidden="true">🎉</span>
+                          </div>
+                          <div className="mt-1 text-sm text-slate-600">
+                            Catching up with {data.firstName} and sending warm wishes from the Starks community.
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Community Preview Section */}
       <section className="px-4 py-10">

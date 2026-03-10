@@ -27,7 +27,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/ToastProvider";
-import { profileEditSchema } from "@/lib/validation";
+import { profileEditSchema, ProfileEditSchema } from "@/lib/validation";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { reportIssue } from "@/lib/reportIssue";
 
@@ -63,17 +63,7 @@ function fileIsAllowedImage(f: File) {
 
 type Tab = "posts" | "about" | "achievements" | "edit";
 
-type EditForm = {
-  firstName: string;
-  lastName: string;
-  bio?: string;
-  location?: string;
-  email: string;
-  countryCode: string;
-  phoneNumber: string; // digits only
-  sportsInterests?: Record<string, boolean>;
-  goals?: string;
-};
+type EditForm = ProfileEditSchema;
 
 const SPORT_OPTIONS = ["Cricket", "Basketball", "Soccer", "Tennis", "Volleyball", "Running", "Swimming", "Other"];
 const COUNTRY_CODES = [
@@ -210,6 +200,8 @@ export default function ProfilePage() {
       bio: userDoc?.bio ?? "",
       location: userDoc?.location ?? "",
       email: (user?.email ?? userDoc?.email ?? "").toLowerCase(),
+      birthMonth: userDoc?.birthMonth ?? "",
+      birthDay: userDoc?.birthDay ?? "",
       countryCode: userDoc?.countryCode ?? "+1",
       phoneNumber: userDoc?.phoneNumber ?? "",
       sportsInterests: defaultSports,
@@ -240,6 +232,8 @@ export default function ProfilePage() {
       bio: userDoc.bio ?? "",
       location: userDoc.location ?? "",
       email: (user.email ?? userDoc.email ?? "").toLowerCase(),
+      birthMonth: userDoc.birthMonth ?? "",
+      birthDay: userDoc.birthDay ?? "",
       countryCode: userDoc.countryCode ?? "+1",
       phoneNumber: userDoc.phoneNumber ?? "",
       sportsInterests: initSportsMap(userDoc),
@@ -384,6 +378,8 @@ export default function ProfilePage() {
         lastName,
         name: `${firstName} ${lastName}`.trim() || userDoc.name,
         email: emailLower || userDoc.email,
+        birthMonth: data.birthMonth === "" || data.birthMonth == null ? undefined : Number(data.birthMonth),
+        birthDay: data.birthDay === "" || data.birthDay == null ? undefined : Number(data.birthDay),
         bio: (data.bio ?? "").trim().slice(0, 100) || undefined,
         location: (data.location ?? "").trim() || undefined,
         countryCode,
@@ -418,6 +414,8 @@ export default function ProfilePage() {
       bio: userDoc?.bio ?? "",
       location: userDoc?.location ?? "",
       email: (user?.email ?? userDoc?.email ?? "").toLowerCase(),
+      birthMonth: userDoc?.birthMonth ?? "",
+      birthDay: userDoc?.birthDay ?? "",
       countryCode: userDoc?.countryCode ?? "+1",
       phoneNumber: userDoc?.phoneNumber ?? "",
       sportsInterests: initSportsMap(userDoc),
@@ -744,6 +742,41 @@ export default function ProfilePage() {
                     }
                   />
                   <input type="hidden" {...register("phoneNumber")} />
+                </Field>
+
+                <Field label="Birth Month" error={errors.birthMonth?.message}>
+                  <Select className="bg-slate-100 border-slate-100" {...register("birthMonth")}>
+                    <option value="">Select month</option>
+                    {[
+                      "January",
+                      "February",
+                      "March",
+                      "April",
+                      "May",
+                      "June",
+                      "July",
+                      "August",
+                      "September",
+                      "October",
+                      "November",
+                      "December",
+                    ].map((month, index) => (
+                      <option key={month} value={index + 1}>
+                        {month}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field label="Birth Day" error={errors.birthDay?.message}>
+                  <Select className="bg-slate-100 border-slate-100" {...register("birthDay")}>
+                    <option value="">Select day</option>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                      <option key={day} value={day}>
+                        {day}
+                      </option>
+                    ))}
+                  </Select>
                 </Field>
 
                 <div className="md:col-span-2">
