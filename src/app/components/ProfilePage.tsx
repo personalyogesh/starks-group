@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -493,7 +492,12 @@ export default function ProfilePage() {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                       <div className="relative h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 rounded-full border-4 border-white shadow-sm overflow-hidden bg-slate-100">
                         {currentAvatar ? (
-                          <Image src={currentAvatar} alt="Profile photo" fill className="object-cover" />
+                          <img
+                            src={currentAvatar}
+                            alt="Profile photo"
+                            className="h-full w-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
                         ) : (
                           <div className="h-full w-full grid place-items-center text-slate-500 text-sm">No photo</div>
                         )}
@@ -828,7 +832,7 @@ export default function ProfilePage() {
                     <div className="text-xs text-slate-600">JPG/PNG, max 5MB</div>
                     {avatarPreview && (
                       <div className="relative h-20 w-20 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100">
-                        <Image src={avatarPreview} alt="New avatar preview" fill className="object-cover" />
+                        <img src={avatarPreview} alt="New avatar preview" className="h-full w-full object-cover" />
                       </div>
                     )}
                   </div>
