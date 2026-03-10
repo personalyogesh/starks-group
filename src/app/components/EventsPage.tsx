@@ -364,7 +364,7 @@ function EventCard({
         <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white">
           <div className="relative aspect-[16/8] bg-slate-200">
             {data.bannerImage ? (
-              <Image src={data.bannerImage} alt="" fill className="object-cover" />
+              <Image src={data.bannerImage} alt="" fill unoptimized className="object-cover" />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600" />
             )}

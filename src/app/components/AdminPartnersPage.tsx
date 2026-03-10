@@ -279,7 +279,7 @@ export default function AdminPartnersPage() {
                 <div className="flex items-start gap-4">
                   <div className="relative h-14 w-14 rounded-2xl overflow-hidden border border-slate-200 bg-white shrink-0">
                     {p.logoUrl ? (
-                      <Image src={p.logoUrl} alt={`${p.name} logo`} fill className="object-contain p-2" />
+                      <Image src={p.logoUrl} alt={`${p.name} logo`} fill unoptimized className="object-contain p-2" />
                     ) : (
                       <div className="h-full w-full grid place-items-center text-xs font-bold text-slate-500">Logo</div>
                     )}

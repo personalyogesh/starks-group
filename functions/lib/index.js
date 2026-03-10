@@ -33,10 +33,139 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminDeleteAuthUser = exports.adminSetUserRole = exports.adminBootstrapAdminClaim = void 0;
+exports.automaticBirthdayWishOnUserWrite = exports.automaticBirthdayWishScheduler = exports.adminDeleteAuthUser = exports.adminSetUserRole = exports.adminBootstrapAdminClaim = void 0;
 const admin = __importStar(require("firebase-admin"));
+const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 admin.initializeApp();
+const db = admin.firestore();
+const STARKS_TIME_ZONE = "America/New_York";
+function getTodayParts(now = new Date()) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: STARKS_TIME_ZONE,
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+    }).formatToParts(now);
+    const value = (type) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+    return {
+        year: value("year"),
+        month: value("month"),
+        day: value("day"),
+    };
+}
+function displayDateKey(today = getTodayParts()) {
+    return `${today.year}-${String(today.month).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
+}
+function monthDayValue(month, day) {
+    return month && day ? month * 100 + day : -1;
+}
+function getBirthdayState(user, today = getTodayParts()) {
+    if (user.status !== "approved" || user.suspended === true || !user.birthMonth || !user.birthDay) {
+        return { showTodayBirthday: false, belatedEligible: false };
+    }
+    const todayValue = monthDayValue(today.month, today.day);
+    const birthdayValue = monthDayValue(user.birthMonth, user.birthDay);
+    return {
+        showTodayBirthday: user.birthMonth === today.month && user.birthDay === today.day,
+        belatedEligible: birthdayValue >= 0 && birthdayValue < todayValue,
+    };
+}
+async function syncBirthdayWishForUser(uid, user, today = getTodayParts()) {
+    const { showTodayBirthday, belatedEligible } = getBirthdayState(user, today);
+    const todayBirthdayId = `auto-birthday-${displayDateKey(today)}-${uid}`;
+    const belatedId = `auto-belated-${today.year}-${uid}`;
+    const todayBirthdayRef = db.doc(`birthdayWishes/${todayBirthdayId}`);
+    const belatedRef = db.doc(`birthdayWishes/${belatedId}`);
+    const [todayBirthdaySnap, belatedSnap] = await Promise.all([todayBirthdayRef.get(), belatedRef.get()]);
+    let changed = false;
+    const firstName = (user.firstName ?? user.name?.trim().split(/\s+/)[0] ?? "Member").trim() || "Member";
+    if (showTodayBirthday) {
+        if (!todayBirthdaySnap.exists) {
+            await todayBirthdayRef.set({
+                userId: uid,
+                firstName,
+                message: `Happy Birthday, ${firstName}!`,
+                birthMonth: user.birthMonth,
+                birthDay: user.birthDay,
+                wishType: "birthday",
+                wishYear: today.year,
+                displayDateKey: displayDateKey(today),
+                postedAt: admin.firestore.FieldValue.serverTimestamp(),
+                postedBy: "system",
+                source: "automatic",
+            }, { merge: true });
+            changed = true;
+        }
+        if (user.lastBirthdayWishYear !== today.year || user.lastBirthdayWishType !== "birthday") {
+            await db.doc(`users/${uid}`).set({
+                lastBirthdayWishYear: today.year,
+                lastBirthdayWishType: "birthday",
+                lastBirthdayWishPostedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
+            changed = true;
+        }
+    }
+    else if (todayBirthdaySnap.exists) {
+        await todayBirthdayRef.delete();
+        changed = true;
+    }
+    const alreadyBelatedThisYear = user.lastBirthdayWishYear === today.year && user.lastBirthdayWishType === "belated";
+    if (belatedEligible && (alreadyBelatedThisYear || user.lastBirthdayWishYear !== today.year)) {
+        if (!belatedSnap.exists) {
+            await belatedRef.set({
+                userId: uid,
+                firstName,
+                message: `Belated Happy Birthday, ${firstName}!`,
+                birthMonth: user.birthMonth,
+                birthDay: user.birthDay,
+                wishType: "belated",
+                wishYear: today.year,
+                postedAt: admin.firestore.FieldValue.serverTimestamp(),
+                postedBy: "system",
+                source: "automatic",
+            }, { merge: true });
+            changed = true;
+        }
+        if (!alreadyBelatedThisYear && user.lastBirthdayWishYear !== today.year) {
+            await db.doc(`users/${uid}`).set({
+                lastBirthdayWishYear: today.year,
+                lastBirthdayWishType: "belated",
+                lastBirthdayWishPostedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
+            changed = true;
+        }
+    }
+    else if (belatedSnap.exists) {
+        await belatedRef.delete();
+        changed = true;
+    }
+    return changed;
+}
+async function syncAutomaticBirthdayWishes() {
+    const today = getTodayParts();
+    const todayKey = displayDateKey(today);
+    const existingAutomatic = await db.collection("birthdayWishes").where("source", "==", "automatic").get();
+    let deleted = 0;
+    for (const doc of existingAutomatic.docs) {
+        const data = doc.data();
+        const isTodayBirthdayDoc = data.wishType === "birthday" && data.displayDateKey === todayKey;
+        const isCurrentYearBelatedDoc = data.wishType === "belated" && data.wishYear === today.year;
+        if (isTodayBirthdayDoc || isCurrentYearBelatedDoc)
+            continue;
+        await doc.ref.delete();
+        deleted += 1;
+    }
+    const snap = await db.collection("users").where("status", "==", "approved").get();
+    let created = 0;
+    for (const doc of snap.docs) {
+        const changed = await syncBirthdayWishForUser(doc.id, doc.data(), today);
+        if (changed)
+            created += 1;
+    }
+    return { created, deleted, scanned: snap.size, year: today.year, month: today.month, day: today.day };
+}
 function requireAuth(context) {
     if (!context.auth?.uid)
         throw new https_1.HttpsError("unauthenticated", "Login required.");
@@ -83,4 +212,21 @@ exports.adminDeleteAuthUser = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError("invalid-argument", "uid is required");
     await admin.auth().deleteUser(uid);
     return { ok: true };
+});
+exports.automaticBirthdayWishScheduler = (0, scheduler_1.onSchedule)({
+    schedule: "every 15 minutes",
+    timeZone: STARKS_TIME_ZONE,
+}, async () => {
+    const result = await syncAutomaticBirthdayWishes();
+    console.log("[automaticBirthdayWishScheduler]", result);
+});
+exports.automaticBirthdayWishOnUserWrite = (0, firestore_1.onDocumentWritten)("users/{uid}", async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists)
+        return;
+    const user = after.data();
+    const changed = await syncBirthdayWishForUser(event.params.uid, user);
+    if (changed) {
+        console.log("[automaticBirthdayWishOnUserWrite] created", { uid: event.params.uid });
+    }
 });

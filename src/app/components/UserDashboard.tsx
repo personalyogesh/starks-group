@@ -15,6 +15,7 @@ import {
   startAfter,
   QueryDocumentSnapshot,
   DocumentData,
+  where,
 } from "firebase/firestore";
 
 import { useAuth } from "@/lib/AuthContext";
@@ -145,7 +146,9 @@ export default function UserDashboard() {
   // Feed: realtime for first page
   useEffect(() => {
     if (!isFirebaseConfigured) return;
-    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
+    const q = isApproved || isAdmin
+      ? query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(PAGE_SIZE))
+      : query(collection(db, "posts"), where("privacy", "==", "public"), orderBy("createdAt", "desc"), limit(PAGE_SIZE));
     return onSnapshot(
       q,
       (snap) => {
@@ -165,7 +168,7 @@ export default function UserDashboard() {
       }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isApproved, isAdmin]);
 
   const combinedPosts = useMemo(() => {
     const seen = new Set(appliedFirstPage.map((p) => p.id));
@@ -240,7 +243,15 @@ export default function UserDashboard() {
     if (!cursor) return;
     setLoadingMore(true);
     try {
-      const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), startAfter(cursor), limit(PAGE_SIZE));
+      const q = isApproved || isAdmin
+        ? query(collection(db, "posts"), orderBy("createdAt", "desc"), startAfter(cursor), limit(PAGE_SIZE))
+        : query(
+            collection(db, "posts"),
+            where("privacy", "==", "public"),
+            orderBy("createdAt", "desc"),
+            startAfter(cursor),
+            limit(PAGE_SIZE)
+          );
       const snap = await getDocs(q);
       const docs = snap.docs.map((d) => ({ id: d.id, data: d.data() as PostDoc }));
       olderCursorRef.current = snap.docs[snap.docs.length - 1] ?? olderCursorRef.current;
@@ -555,16 +566,6 @@ export default function UserDashboard() {
               </CardBody>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <div className="font-extrabold tracking-tight text-lg">Suggested Connections</div>
-              </CardHeader>
-              <CardBody>
-                <div className="text-sm text-slate-600">
-                  Coming soon — we’ll suggest members based on shared interests and activity.
-                </div>
-              </CardBody>
-            </Card>
           </aside>
         </div>
       </div>

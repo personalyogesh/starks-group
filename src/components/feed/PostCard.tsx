@@ -245,7 +245,7 @@ export default function PostCard({
         <div className="flex items-start gap-3">
           <div className="h-10 w-10 rounded-full overflow-hidden bg-slate-200 relative shrink-0">
             {displayAvatar ? (
-              <Image src={displayAvatar} alt="" fill className="object-cover" />
+              <Image src={displayAvatar} alt="" fill unoptimized className="object-cover" />
             ) : (
               <div className="h-full w-full grid place-items-center text-xs font-bold text-slate-700">
                 {displayName
@@ -336,7 +336,7 @@ export default function PostCard({
             {post.imageUrl && (
               <div className="mt-4 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100">
                 <div className="relative aspect-[16/10]">
-                  <Image src={post.imageUrl} alt="" fill className="object-cover" />
+                  <Image src={post.imageUrl} alt="" fill unoptimized className="object-cover" />
                 </div>
               </div>
             )}
@@ -413,7 +413,7 @@ export default function PostCard({
                           <div className="flex items-start gap-3">
                             <div className="h-9 w-9 rounded-full overflow-hidden bg-slate-200 relative shrink-0">
                               {data.authorAvatar ? (
-                                <Image src={data.authorAvatar} alt="" fill className="object-cover" />
+                                <Image src={data.authorAvatar} alt="" fill unoptimized className="object-cover" />
                               ) : (
                                 <div className="h-full w-full grid place-items-center text-[11px] font-bold text-slate-700">
                                   {initials}
@@ -480,7 +480,7 @@ export default function PostCard({
                                   <div key={rid} className="flex items-start gap-3">
                                     <div className="h-8 w-8 rounded-full overflow-hidden bg-slate-200 relative shrink-0">
                                       {rdata.authorAvatar ? (
-                                        <Image src={rdata.authorAvatar} alt="" fill className="object-cover" />
+                                        <Image src={rdata.authorAvatar} alt="" fill unoptimized className="object-cover" />
                                       ) : (
                                         <div className="h-full w-full grid place-items-center text-[10px] font-bold text-slate-700">
                                           {rinitials}

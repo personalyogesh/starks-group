@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { fetchSignInMethodsForEmail } from "firebase/auth";
 
 import logo from "@/assets/starks-logo.jpg";
 import Button from "@/components/ui/Button";
@@ -14,10 +13,25 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useAuth } from "@/lib/AuthContext";
-import { auth, isFirebaseConfigured } from "@/lib/firebaseClient";
+import { isFirebaseConfigured } from "@/lib/firebaseClient";
 import { RegisterSchemaInput, registerSchema } from "@/lib/validation";
 
 type RegisterForm = RegisterSchemaInput & { avatarFile?: FileList };
+
+const MONTH_OPTIONS = [
+  { value: 1, label: "January" },
+  { value: 2, label: "February" },
+  { value: 3, label: "March" },
+  { value: 4, label: "April" },
+  { value: 5, label: "May" },
+  { value: 6, label: "June" },
+  { value: 7, label: "July" },
+  { value: 8, label: "August" },
+  { value: 9, label: "September" },
+  { value: 10, label: "October" },
+  { value: 11, label: "November" },
+  { value: 12, label: "December" },
+] as const;
 
 function formatPhone(digits: string) {
   const d = digits.replace(/\D/g, "").slice(0, 10);
@@ -61,7 +75,7 @@ function mapAuthError(err: any): string {
 export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { signup, loginWithGoogle } = useAuth();
+  const { signup, loginWithGoogle, checkEmailAvailable } = useAuth();
 
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<{ kind: "success" | "error"; text: string } | null>(null);
@@ -86,6 +100,8 @@ export default function RegisterPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      birthMonth: "" as any,
+      birthDay: "" as any,
       countryCode: "+1",
       phoneNumber: "",
       bio: "",
@@ -104,6 +120,7 @@ export default function RegisterPage() {
   const role = watch("role");
   const email = (watch("email") ?? "").toLowerCase();
   const avatarFile = watch("avatarFile");
+  const birthMonth = watch("birthMonth");
 
   const strength = useMemo(() => passwordStrength(pw), [pw]);
 
@@ -122,8 +139,8 @@ export default function RegisterPage() {
     setEmailStatus("checking");
     const t = window.setTimeout(async () => {
       try {
-        const methods = await fetchSignInMethodsForEmail(auth, e);
-        if (methods.length > 0) {
+        const available = await checkEmailAvailable(e);
+        if (!available) {
           setEmailStatus("taken");
           setError("email", { type: "validate", message: "Email already registered" });
         } else {
@@ -136,7 +153,7 @@ export default function RegisterPage() {
       }
     }, 500);
     return () => window.clearTimeout(t);
-  }, [email, errors.email?.message, setError, clearErrors]);
+  }, [email, errors.email?.message, setError, clearErrors, checkEmailAvailable]);
 
   // Keep phone stored as digits only, but display as formatted.
   useEffect(() => {
@@ -197,6 +214,8 @@ export default function RegisterPage() {
         password: data.password,
         firstName,
         lastName,
+        birthMonth: Number(data.birthMonth),
+        birthDay: Number(data.birthDay),
         countryCode: data.countryCode,
         phoneNumber: digits,
         bio: (data.bio ?? "").trim() || undefined,
@@ -224,10 +243,15 @@ export default function RegisterPage() {
     setSubmitting(true);
     setMsg(null);
     try {
-      await loginWithGoogle();
+      const result = await loginWithGoogle();
       // Google users remain signed in, but are read-only until admin approval.
-      setMsg({ kind: "success", text: "Signed in with Google! Awaiting admin approval." });
-      router.push("/dashboard");
+      setMsg({
+        kind: "success",
+        text: result.needsBirthday
+          ? "Signed in with Google! Please add your birthday to complete your profile."
+          : "Signed in with Google! Awaiting admin approval.",
+      });
+      router.push(result.needsBirthday ? "/profile" : "/dashboard");
     } catch (err: any) {
       const text = err?.message ?? "Google sign-in failed";
       setMsg({ kind: "error", text });
@@ -410,6 +434,43 @@ export default function RegisterPage() {
               {errors.confirmPassword?.message && (
                 <div className="text-sm text-rose-700">{errors.confirmPassword.message}</div>
               )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid gap-3">
+              <label className="text-xl font-semibold text-slate-950">Birth Month</label>
+              <Select
+                className="bg-slate-100 border-slate-100 focus:border-brand-primary"
+                {...register("birthMonth")}
+              >
+                <option value="">Select month</option>
+                {MONTH_OPTIONS.map((month) => (
+                  <option key={month.value} value={month.value}>
+                    {month.label}
+                  </option>
+                ))}
+              </Select>
+              {errors.birthMonth?.message && <div className="text-sm text-rose-700">{errors.birthMonth.message}</div>}
+            </div>
+
+            <div className="grid gap-3">
+              <label className="text-xl font-semibold text-slate-950">Birth Day</label>
+              <Select
+                className="bg-slate-100 border-slate-100 focus:border-brand-primary"
+                {...register("birthDay")}
+              >
+                <option value="">Select day</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                  <option key={day} value={day}>
+                    {day}
+                  </option>
+                ))}
+              </Select>
+              {birthMonth === "" && (
+                <div className="text-xs text-slate-500">Select your birthday month and day for birthday wishes.</div>
+              )}
+              {errors.birthDay?.message && <div className="text-sm text-rose-700">{errors.birthDay.message}</div>}
             </div>
           </div>
 

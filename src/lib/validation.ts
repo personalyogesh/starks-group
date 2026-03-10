@@ -33,6 +33,8 @@ export const registerSchema = z
     bio: z.string().max(100, "Bio must be 100 characters or less").optional().default(""),
     sportInterest: z.string().min(1, "Select a sport"),
     role: z.string().min(1, "Select a role"),
+    birthMonth: z.coerce.number().int().min(1, "Select birth month").max(12, "Select birth month"),
+    birthDay: z.coerce.number().int().min(1, "Select birth day").max(31, "Select birth day"),
     agreedToTerms: z.boolean().refine((v) => v === true, "You must agree to the terms"),
   })
   .refine((d) => d.password === d.confirmPassword, {
@@ -73,10 +75,26 @@ export const profileEditSchema = z.object({
     .string()
     .transform((v) => v.replace(/\D/g, ""))
     .refine((v) => v.length === 10, "Phone number must be 10 digits"),
+  birthMonth: z
+    .union([z.literal(""), z.coerce.number().int().min(1).max(12)])
+    .optional()
+    .default(""),
+  birthDay: z
+    .union([z.literal(""), z.coerce.number().int().min(1).max(31)])
+    .optional()
+    .default(""),
   // Use explicit key+value schemas so the input type doesn't degrade to Record<PropertyKey, unknown>.
   sportsInterests: z.record(z.string(), z.boolean()).optional().default({}),
   goals: z.string().optional().default(""),
-});
+}).refine(
+  (data) =>
+    (data.birthMonth === "" && data.birthDay === "") ||
+    (data.birthMonth !== "" && data.birthDay !== ""),
+  {
+    message: "Select both birthday month and day",
+    path: ["birthMonth"],
+  }
+);
 
 export type ProfileEditSchema = z.input<typeof profileEditSchema>;
 

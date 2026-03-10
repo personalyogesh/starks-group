@@ -6,6 +6,7 @@ import {
   arrayUnion,
   collection,
   collectionGroup,
+  deleteField,
   deleteDoc,
   doc,
   getDoc,
@@ -31,6 +32,11 @@ export type UserDoc = {
   firstName?: string;
   lastName?: string;
   email: string;
+  birthMonth?: number;
+  birthDay?: number;
+  lastBirthdayWishYear?: number;
+  lastBirthdayWishType?: "birthday" | "belated";
+  lastBirthdayWishPostedAt?: any;
   countryCode?: string;
   phoneNumber?: string; // 10-digit national number (digits only)
   fullPhoneNumber?: string; // countryCode + phoneNumber
@@ -137,6 +143,20 @@ export type CarouselSlideDoc = {
   createdBy: string;
 };
 
+export type BirthdayWishDoc = {
+  userId: string;
+  firstName: string;
+  message: string;
+  birthMonth: number;
+  birthDay: number;
+  wishType: "birthday" | "belated";
+  wishYear: number;
+  displayDateKey?: string;
+  postedAt: any;
+  postedBy: string;
+  source?: "automatic" | "admin";
+};
+
 export function listenCollection<T>(
   path: string,
   cb: (docs: Array<{ id: string; data: T }>) => void,
@@ -144,17 +164,24 @@ export function listenCollection<T>(
     orderByField?: string;
     direction?: "asc" | "desc";
     limit?: number;
+    whereField?: string;
+    whereOp?: "<" | "<=" | "==" | ">=" | ">" | "!=" | "array-contains";
+    whereValue?: unknown;
     onError?: (err: unknown) => void;
   }
 ) {
   const orderByField = opts?.orderByField ?? "createdAt";
   const direction = opts?.direction ?? "desc";
   const lim = opts?.limit;
-
-  const q =
-    typeof lim === "number"
-      ? query(collection(db, path), orderBy(orderByField, direction), fbLimit(lim))
-      : query(collection(db, path), orderBy(orderByField, direction));
+  const constraints: any[] = [];
+  if (opts?.whereField && opts.whereOp && typeof opts.whereValue !== "undefined") {
+    constraints.push(where(opts.whereField, opts.whereOp, opts.whereValue));
+  }
+  constraints.push(orderBy(orderByField, direction));
+  if (typeof lim === "number") {
+    constraints.push(fbLimit(lim));
+  }
+  const q = query(collection(db, path), ...constraints);
   return onSnapshot(
     q,
     (snap) => {
@@ -334,6 +361,38 @@ export async function updateCarouselSlide(slideId: string, patch: Partial<Carous
   await updateDoc(doc(db, "carouselSlides", slideId), patch);
 }
 
+export async function createBirthdayWish(
+  postedBy: string,
+  userId: string,
+  user: Pick<UserDoc, "firstName" | "name" | "birthMonth" | "birthDay">,
+  wishType: "birthday" | "belated"
+) {
+  if (!user.birthMonth || !user.birthDay) {
+    throw new Error("User birthday is incomplete.");
+  }
+  const firstName = (user.firstName ?? user.name?.trim().split(/\s+/)[0] ?? "Member").trim() || "Member";
+  const wishYear = new Date().getFullYear();
+  const message = wishType === "belated" ? `Belated Happy Birthday, ${firstName}!` : `Happy Birthday, ${firstName}!`;
+
+  await addDoc(collection(db, "birthdayWishes"), {
+    userId,
+    firstName,
+    message,
+    birthMonth: user.birthMonth,
+    birthDay: user.birthDay,
+    wishType,
+    wishYear,
+    postedAt: serverTimestamp(),
+    postedBy,
+  } satisfies BirthdayWishDoc);
+
+  await updateDoc(doc(db, "users", userId), {
+    lastBirthdayWishYear: wishYear,
+    lastBirthdayWishType: wishType,
+    lastBirthdayWishPostedAt: serverTimestamp(),
+  });
+}
+
 export function listenPostsByUser(
   uid: string,
   cb: (docs: Array<{ id: string; data: PostDoc }>) => void,
@@ -416,6 +475,11 @@ export function listenComments(
     sub: Array<{ id: string; data: CommentDoc }>;
   } = { top: [], sub: [] };
 
+  const isMissingIndexError = (err: unknown) => {
+    const code = typeof err === "object" && err && "code" in err ? String((err as any).code ?? "") : "";
+    return code === "failed-precondition";
+  };
+
   const emit = () => {
     const map = new Map<string, CommentDoc>();
     for (const c of state.sub) map.set(c.id, { ...c.data, _source: "sub" });
@@ -423,14 +487,37 @@ export function listenComments(
     cb(Array.from(map.entries()).map(([id, data]) => ({ id, data })));
   };
 
-  const unsubTop = onSnapshot(topQ, (snap) => {
-    state.top = snap.docs.map((d) => ({ id: d.id, data: d.data() as CommentDoc }));
-    emit();
-  });
-  const unsubSub = onSnapshot(subQ, (snap) => {
-    state.sub = snap.docs.map((d) => ({ id: d.id, data: d.data() as CommentDoc }));
-    emit();
-  });
+  const unsubTop = onSnapshot(
+    topQ,
+    (snap) => {
+      state.top = snap.docs.map((d) => ({ id: d.id, data: d.data() as CommentDoc }));
+      emit();
+    },
+    (err) => {
+      state.top = [];
+      emit();
+      if (isMissingIndexError(err)) {
+        console.warn("[listenComments] top-level comments query missing index; falling back to legacy comments subcollection", {
+          postId,
+          err,
+        });
+        return;
+      }
+      console.warn("[listenComments] top-level comments snapshot error", { postId, err });
+    }
+  );
+  const unsubSub = onSnapshot(
+    subQ,
+    (snap) => {
+      state.sub = snap.docs.map((d) => ({ id: d.id, data: d.data() as CommentDoc }));
+      emit();
+    },
+    (err) => {
+      state.sub = [];
+      emit();
+      console.warn("[listenComments] legacy comments snapshot error", { postId, err });
+    }
+  );
 
   return () => {
     unsubTop();
@@ -497,7 +584,10 @@ export async function deleteComment(postId: string, commentId: string) {
 }
 
 export async function updateUserProfile(uid: string, patch: Partial<UserDoc>) {
-  await updateDoc(doc(db, "users", uid), { ...patch, updatedAt: serverTimestamp() });
+  const normalizedPatch = Object.fromEntries(
+    Object.entries(patch).map(([key, value]) => [key, value === undefined ? deleteField() : value])
+  );
+  await updateDoc(doc(db, "users", uid), { ...normalizedPatch, updatedAt: serverTimestamp() });
 }
 
 export async function touchLastLogin(uid: string) {

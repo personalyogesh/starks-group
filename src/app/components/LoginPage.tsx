@@ -4,21 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import {
-  browserLocalPersistence,
-  browserSessionPersistence,
-  sendPasswordResetEmail,
-  setPersistence,
-  signInWithEmailAndPassword,
-  signOut,
-} from "firebase/auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import logo from "@/assets/starks-logo.jpg";
-import { auth, isFirebaseConfigured } from "@/lib/firebaseClient";
+import { isFirebaseConfigured } from "@/lib/firebaseClient";
 import { useAuth } from "@/lib/AuthContext";
-import { getUser } from "@/lib/firestore";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { LoginSchema, loginSchema } from "@/lib/validation";
@@ -37,7 +28,8 @@ function mapAuthError(err: any): string {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { currentUser, loading, logout, loginWithGoogle } = useAuth();
+  const { currentUser, loading, logout, login, loginWithGoogle, forgotPassword: sendResetEmail } = useAuth();
+  const missingBirthday = Boolean(currentUser && (!currentUser.userDoc?.birthMonth || !currentUser.userDoc?.birthDay));
 
   const [submitting, setSubmitting] = useState(false);
   const [showPw, setShowPw] = useState(false);
@@ -51,8 +43,8 @@ export default function LoginPage() {
   // Auto-redirect if already signed in
   useEffect(() => {
     if (loading) return;
-    if (currentUser) router.replace("/dashboard");
-  }, [loading, currentUser, router]);
+    if (currentUser) router.replace(missingBirthday ? "/profile" : "/dashboard");
+  }, [loading, currentUser, missingBirthday, router]);
 
   // surface auth gating messages (e.g. suspension)
   useEffect(() => {
@@ -110,35 +102,7 @@ export default function LoginPage() {
     setSubmitting(true);
     setMsg(null);
     try {
-      await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
-      const cred = await signInWithEmailAndPassword(auth, emailLower, data.password);
-
-      // Fetch user profile doc and enforce status rules.
-      const doc = await getUser(cred.user.uid);
-      if (!doc) {
-        await signOut(auth);
-        setMsg({ kind: "error", text: "Account not found" });
-        return;
-      }
-
-      if (doc.suspended) {
-        await signOut(auth);
-        setMsg({ kind: "error", text: "Your account has been deactivated. Contact admin." });
-        return;
-      }
-
-      if (doc.status === "pending") {
-        await signOut(auth);
-        setMsg({ kind: "error", text: "Account pending approval" });
-        return;
-      }
-
-      if (doc.status === "rejected") {
-        await signOut(auth);
-        setMsg({ kind: "error", text: "Account has been deactivated" });
-        return;
-      }
-
+      await login(emailLower, data.password, remember);
       setMsg({ kind: "success", text: "Signed in. Redirecting..." });
       router.push("/dashboard");
       setFailCount(0);
@@ -167,9 +131,9 @@ export default function LoginPage() {
     setSubmitting(true);
     setMsg(null);
     try {
-      await loginWithGoogle();
+      const result = await loginWithGoogle();
       setMsg({ kind: "success", text: "Signed in. Redirecting..." });
-      router.push("/dashboard");
+      router.push(result.needsBirthday ? "/profile" : "/dashboard");
       setFailCount(0);
     } catch (err: any) {
       setMsg({ kind: "error", text: err?.message ?? "Google sign-in failed" });
@@ -179,7 +143,7 @@ export default function LoginPage() {
     }
   }
 
-  async function forgotPassword() {
+  async function handleForgotPassword() {
     if (!isFirebaseConfigured) {
       setMsg({
         kind: "error",
@@ -192,7 +156,7 @@ export default function LoginPage() {
       return;
     }
     try {
-      await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+      await sendResetEmail(email.trim().toLowerCase());
       setMsg({ kind: "success", text: "Password reset email sent. Check your inbox." });
     } catch (err: any) {
       setMsg({ kind: "error", text: mapAuthError(err) });
@@ -352,7 +316,7 @@ export default function LoginPage() {
 
             <button
               type="button"
-              onClick={forgotPassword}
+              onClick={handleForgotPassword}
               className="text-xl font-semibold text-blue-600 hover:underline"
             >
               Forgot password?

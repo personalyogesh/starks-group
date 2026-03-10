@@ -7,11 +7,8 @@ import {
   doc,
   getDoc,
   getDocs,
-  orderBy,
-  query,
   serverTimestamp,
   updateDoc,
-  where,
 } from "firebase/firestore";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
@@ -57,18 +54,35 @@ function assertFirebase() {
   if (!isFirebaseConfigured) throw new Error("Firebase isn’t configured.");
 }
 
+const TIER_ORDER: Record<PartnerTier, number> = {
+  platinum: 0,
+  gold: 1,
+  silver: 2,
+  bronze: 3,
+  community: 4,
+};
+
+function sortPartners(rows: Partner[]) {
+  return [...rows].sort((a, b) => {
+    const tierDiff = (TIER_ORDER[a.tier] ?? 999) - (TIER_ORDER[b.tier] ?? 999);
+    if (tierDiff !== 0) return tierDiff;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+async function getPartnersCollection(): Promise<Partner[]> {
+  const snap = await getDocs(collection(db, "partners"));
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Partner, "id">) })) as Partner[];
+}
+
 export async function getAllPartners(): Promise<Partner[]> {
   assertFirebase();
-  const q = query(collection(db, "partners"), orderBy("tier", "asc"), orderBy("name", "asc"));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Partner, "id">) })) as Partner[];
+  return sortPartners(await getPartnersCollection());
 }
 
 export async function getFeaturedPartners(): Promise<Partner[]> {
   assertFirebase();
-  const q = query(collection(db, "partners"), where("featured", "==", true), orderBy("tier", "asc"));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Partner, "id">) })) as Partner[];
+  return sortPartners((await getPartnersCollection()).filter((partner) => partner.featured));
 }
 
 export async function getPartner(partnerId: string): Promise<Partner | null> {
@@ -237,8 +251,6 @@ export async function deletePartner(partnerId: string): Promise<void> {
 
 export async function getPartnersByTier(tier: PartnerTier): Promise<Partner[]> {
   assertFirebase();
-  const q = query(collection(db, "partners"), where("tier", "==", tier), orderBy("name", "asc"));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Partner, "id">) })) as Partner[];
+  return sortPartners((await getPartnersCollection()).filter((partner) => partner.tier === tier));
 }
 

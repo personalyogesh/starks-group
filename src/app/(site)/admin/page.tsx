@@ -27,15 +27,18 @@ import {
   orderBy,
   query,
   where,
-  limit,
   Timestamp,
 } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ui/ToastProvider";
 import { adminBootstrapAdminClaim, adminDeleteAuthUser, adminSetUserRole } from "@/lib/adminFunctions";
+import { useAuth } from "@/lib/AuthContext";
+
+const monthDayValue = (month?: number, day?: number) => (month && day ? month * 100 + day : -1);
 
 export default function AdminPage() {
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const router = useRouter();
   const [stats, setStats] = useState<{
     totalUsers: number | null;
@@ -53,6 +56,7 @@ export default function AdminPage() {
   const [qText, setQText] = useState("");
   const [roleFilter, setRoleFilter] = useState<"" | "member" | "volunteer" | "coach" | "admin">("");
   const [statusFilter, setStatusFilter] = useState<"" | UserStatus>("");
+  const [birthdayFilter, setBirthdayFilter] = useState<"" | "missing" | "complete">("");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
@@ -101,7 +105,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
-    const q = query(collection(db, "users"), orderBy("requestedAt", "desc"), limit(200));
+    const q = query(collection(db, "users"), orderBy("requestedAt", "desc"));
     return onSnapshot(
       q,
       (snap) => {
@@ -127,6 +131,8 @@ export default function AdminPage() {
     const base = users.filter(({ data }) => {
       if (roleFilter && displayRole(data) !== roleFilter) return false;
       if (statusFilter && data.status !== statusFilter) return false;
+      if (birthdayFilter === "missing" && data.birthMonth && data.birthDay) return false;
+      if (birthdayFilter === "complete" && (!data.birthMonth || !data.birthDay)) return false;
       if (!t) return true;
       return (
         (data.name ?? "").toLowerCase().includes(t) ||
@@ -139,11 +145,11 @@ export default function AdminPage() {
       return sortDir === "desc" ? bd - ad : ad - bd;
     });
     return base;
-  }, [users, qText, roleFilter, statusFilter]);
+  }, [users, qText, roleFilter, statusFilter, birthdayFilter]);
 
   useEffect(() => {
     setPage(1);
-  }, [qText, roleFilter, statusFilter, sortDir]);
+  }, [qText, roleFilter, statusFilter, birthdayFilter, sortDir]);
 
   const pageCount = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const pageUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -188,6 +194,41 @@ export default function AdminPage() {
 
   const suspendedBadge = (s?: boolean) =>
     s ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-slate-50 text-slate-700 border-slate-200";
+
+  const today = new Date();
+  const todayMonth = today.getMonth() + 1;
+  const todayDay = today.getDate();
+  const currentYear = today.getFullYear();
+
+  const eligibleBirthdayUsers = useMemo(() => {
+    const approvedUsers = users.filter(({ data }) => data.status === "approved" && !data.suspended && data.birthMonth && data.birthDay);
+
+    const mapped = approvedUsers.map(({ id, data }) => {
+      const alreadyWished = data.lastBirthdayWishYear === currentYear;
+      const isTodayBirthday = data.birthMonth === todayMonth && data.birthDay === todayDay;
+      const isBelatedEligible = monthDayValue(data.birthMonth, data.birthDay) < monthDayValue(todayMonth, todayDay);
+
+      return { id, data, isTodayBirthday, isBelatedEligible, alreadyWished };
+    });
+
+    return {
+      todayBirthdays: mapped.filter((user) => user.isTodayBirthday && !user.alreadyWished),
+      belatedBirthdays: mapped.filter((user) => user.isBelatedEligible && !user.alreadyWished),
+      alreadyPostedBirthdays: mapped.filter(
+        (user) => user.isTodayBirthday && user.alreadyWished && user.data.lastBirthdayWishType === "birthday"
+      ),
+      alreadyPostedBelated: mapped.filter(
+        (user) => user.isBelatedEligible && user.alreadyWished && user.data.lastBirthdayWishType === "belated"
+      ),
+    };
+  }, [users, currentYear, todayMonth, todayDay]);
+
+  const formatBirthday = (month?: number, day?: number) =>
+    month && day ? `${month}/${day}` : "—";
+  const missingBirthdayUsers = useMemo(
+    () => users.filter(({ data }) => !data.birthMonth || !data.birthDay),
+    [users]
+  );
 
   return (
     <RequireAdmin>
@@ -236,6 +277,114 @@ export default function AdminPage() {
           />
         </div>
 
+        <Card>
+          <CardHeader>
+            <div className="font-bold text-lg">Birthday Wishes</div>
+            <div className="text-sm text-slate-600 mt-1">
+              Automatic same-day wishes and one-time belated catch-up wishes are created for approved members without
+              admin action.
+            </div>
+          </CardHeader>
+          <CardBody>
+              <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <div className="font-semibold text-slate-900">
+                  Missing birthday info: {missingBirthdayUsers.length}
+                </div>
+                <div className="text-sm text-slate-600 mt-1">
+                  Ask these members to open `Profile` and add their birth month and day after the release.
+                </div>
+              </div>
+            <div className="space-y-3">
+              <div className="text-sm font-semibold text-slate-900">Today&apos;s Birthdays</div>
+              {eligibleBirthdayUsers.todayBirthdays.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  No approved members have birthdays today.
+                </div>
+              ) : (
+                eligibleBirthdayUsers.todayBirthdays.map(({ id, data }) => (
+                  <div key={id} className="rounded-2xl border border-slate-200 bg-white px-4 py-4 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-semibold text-slate-900">{data.firstName || data.name}</div>
+                      <div className="text-sm text-slate-600">Birthday: {formatBirthday(data.birthMonth, data.birthDay)}</div>
+                    </div>
+                    <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                      Auto today
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <div className="text-sm font-semibold text-slate-900">Belated Catch-up</div>
+              {eligibleBirthdayUsers.belatedBirthdays.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  No approved members currently need a belated birthday catch-up.
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {eligibleBirthdayUsers.belatedBirthdays.map(({ id, data }) => (
+                    <div
+                      key={id}
+                      className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 flex items-center justify-between gap-3"
+                    >
+                      <div>
+                        <div className="font-semibold text-slate-900">{data.firstName || data.name}</div>
+                        <div className="text-sm text-slate-600">Birthday: {formatBirthday(data.birthMonth, data.birthDay)}</div>
+                      </div>
+                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-bold text-amber-700">
+                        Auto belated
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <div className="text-sm font-semibold text-slate-900">Already Posted This Year</div>
+              {eligibleBirthdayUsers.alreadyPostedBirthdays.length === 0 &&
+              eligibleBirthdayUsers.alreadyPostedBelated.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  No birthday wishes have been posted yet this year.
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {eligibleBirthdayUsers.alreadyPostedBirthdays.map(({ id, data }) => (
+                    <div key={id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-slate-900">{data.firstName || data.name}</div>
+                        <div className="text-sm text-slate-600">
+                          Birthday wish already posted for {formatBirthday(data.birthMonth, data.birthDay)}.
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700">
+                        Posted
+                      </span>
+                    </div>
+                  ))}
+                  {eligibleBirthdayUsers.alreadyPostedBelated.map(({ id, data }) => (
+                    <div
+                      key={id}
+                      className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 flex items-center justify-between gap-3"
+                    >
+                      <div>
+                        <div className="font-semibold text-slate-900">{data.firstName || data.name}</div>
+                        <div className="text-sm text-slate-600">
+                          Belated birthday wish already posted for {formatBirthday(data.birthMonth, data.birthDay)}.
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-bold text-amber-700">
+                        Posted belated
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardBody>
+        </Card>
+
         {/* Main grid */}
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
           {/* Quick actions */}
@@ -265,12 +414,6 @@ export default function AdminPage() {
                     📝 Create Post
                   </Button>
                 </Link>
-                <Button variant="outline" className="w-full" disabled title="Coming soon">
-                  ✉️ Send Newsletter
-                </Button>
-                <Button variant="outline" className="w-full" disabled title="Coming soon">
-                  ⬇️ Export Data
-                </Button>
               </div>
             </CardBody>
           </Card>
@@ -291,7 +434,7 @@ export default function AdminPage() {
               </div>
             </CardHeader>
             <CardBody>
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_180px_180px] gap-3 items-center">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_180px_180px_180px] gap-3 items-center">
                 <div className="relative">
                   <Input
                     className="bg-slate-100 border-slate-100 pl-10"
@@ -317,6 +460,16 @@ export default function AdminPage() {
                 <Select className="bg-white" value={sortDir} onChange={(e) => setSortDir(e.target.value as any)}>
                   <option value="desc">Join Date: Newest</option>
                   <option value="asc">Join Date: Oldest</option>
+                </Select>
+
+                <Select
+                  className="bg-white"
+                  value={birthdayFilter}
+                  onChange={(e) => setBirthdayFilter(e.target.value as any)}
+                >
+                  <option value="">All Birthday Info</option>
+                  <option value="missing">Missing Birthday</option>
+                  <option value="complete">Birthday Complete</option>
                 </Select>
 
                 <Select

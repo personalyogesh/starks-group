@@ -234,6 +234,7 @@ export default function LandingCarousel({
           src={active?.imageUrl || fallbackImageUrl}
           alt={active?.title || "Starks Cricket"}
           fill
+          unoptimized
           className="object-cover"
           priority
         />
@@ -366,7 +367,7 @@ export default function LandingCarousel({
               />
               {previewUrl && (
                 <div className="relative aspect-[16/10] rounded-2xl border border-slate-200 overflow-hidden bg-slate-100">
-                  <Image src={previewUrl} alt="Preview" fill className="object-cover" />
+                  <Image src={previewUrl} alt="Preview" fill unoptimized className="object-cover" />
                 </div>
               )}
               {disabledReason && (
@@ -402,7 +403,7 @@ export default function LandingCarousel({
                   <div key={id} className="rounded-2xl border border-slate-200 bg-white p-3">
                     <div className="flex gap-3">
                       <div className="relative h-16 w-24 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0">
-                        <Image src={data.imageUrl} alt={data.title} fill className="object-cover" />
+                        <Image src={data.imageUrl} alt={data.title} fill unoptimized className="object-cover" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="font-bold text-slate-900 truncate">{data.title}</div>

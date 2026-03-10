@@ -6,10 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  fetchSignInMethodsForEmail,
-  updateEmail,
-} from "firebase/auth";
+import { updateEmail } from "firebase/auth";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { useAuth } from "@/lib/AuthContext";
@@ -19,7 +16,6 @@ import {
   isFirebaseConfigured,
   storage,
 } from "@/lib/firebaseClient";
-import { auth } from "@/lib/firebaseClient";
 import { getEvent, listenPostsByUser, listenUserRsvps, PostDoc, UserDoc } from "@/lib/firestore";
 import PostCard from "@/components/feed/PostCard";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
@@ -27,7 +23,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import { useToast } from "@/components/ui/ToastProvider";
-import { profileEditSchema } from "@/lib/validation";
+import { profileEditSchema, type ProfileEditSchema as ProfileEditForm } from "@/lib/validation";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 function tsToDate(ts: any): Date | null {
@@ -60,19 +56,20 @@ function fileIsAllowedImage(f: File) {
   return f.type === "image/jpeg" || f.type === "image/png";
 }
 
-type Tab = "posts" | "about" | "achievements" | "edit";
+function mapProfileSaveError(err: any): string {
+  const code = String(err?.code ?? "");
+  if (code === "permission-denied" || code === "storage/unauthorized") {
+    return "You do not have permission to update this profile right now.";
+  }
+  if (code === "auth/requires-recent-login") {
+    return "Please sign out and sign back in, then try updating your profile again.";
+  }
+  return err?.message ?? "Failed to save profile";
+}
 
-type EditForm = {
-  firstName: string;
-  lastName: string;
-  bio?: string;
-  location?: string;
-  email: string;
-  countryCode: string;
-  phoneNumber: string; // digits only
-  sportsInterests?: Record<string, boolean>;
-  goals?: string;
-};
+type Tab = "posts" | "about" | "edit";
+
+type EditForm = ProfileEditForm;
 
 const SPORT_OPTIONS = ["Cricket", "Basketball", "Soccer", "Tennis", "Volleyball", "Running", "Swimming", "Other"];
 const COUNTRY_CODES = [
@@ -82,6 +79,20 @@ const COUNTRY_CODES = [
   { value: "+61", label: "+61 (Australia)" },
   { value: "+27", label: "+27 (South Africa)" },
   { value: "+64", label: "+64 (New Zealand)" },
+];
+const BIRTH_MONTHS = [
+  { value: 1, label: "January" },
+  { value: 2, label: "February" },
+  { value: 3, label: "March" },
+  { value: 4, label: "April" },
+  { value: 5, label: "May" },
+  { value: 6, label: "June" },
+  { value: 7, label: "July" },
+  { value: 8, label: "August" },
+  { value: 9, label: "September" },
+  { value: 10, label: "October" },
+  { value: 11, label: "November" },
+  { value: 12, label: "December" },
 ];
 
 function initSportsMap(doc: UserDoc | null): Record<string, boolean> {
@@ -99,7 +110,7 @@ function selectedSports(map: Record<string, boolean>) {
 
 export default function ProfilePage() {
   const { toast } = useToast();
-  const { currentUser, loading, updateProfile } = useAuth();
+  const { currentUser, loading, updateProfile, checkEmailAvailable } = useAuth();
   const router = useRouter();
   const user = currentUser?.authUser ?? null;
   const userDoc = currentUser?.userDoc ?? null;
@@ -207,6 +218,8 @@ export default function ProfilePage() {
       bio: userDoc?.bio ?? "",
       location: userDoc?.location ?? "",
       email: (user?.email ?? userDoc?.email ?? "").toLowerCase(),
+      birthMonth: userDoc?.birthMonth ?? "",
+      birthDay: userDoc?.birthDay ?? "",
       countryCode: userDoc?.countryCode ?? "+1",
       phoneNumber: userDoc?.phoneNumber ?? "",
       sportsInterests: defaultSports,
@@ -237,6 +250,8 @@ export default function ProfilePage() {
       bio: userDoc.bio ?? "",
       location: userDoc.location ?? "",
       email: (user.email ?? userDoc.email ?? "").toLowerCase(),
+      birthMonth: userDoc.birthMonth ?? "",
+      birthDay: userDoc.birthDay ?? "",
       countryCode: userDoc.countryCode ?? "+1",
       phoneNumber: userDoc.phoneNumber ?? "",
       sportsInterests: initSportsMap(userDoc),
@@ -267,8 +282,8 @@ export default function ProfilePage() {
     }
     try {
       setEmailStatus("checking");
-      const methods = await fetchSignInMethodsForEmail(auth, emailLower);
-      if (methods.length > 0) {
+      const available = await checkEmailAvailable(emailLower, authUserEmail);
+      if (!available) {
         setEmailStatus("taken");
         setError("email", { type: "validate", message: "Email already taken" });
       } else {
@@ -300,7 +315,7 @@ export default function ProfilePage() {
     }, 500);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wEmail, tab, user?.email, errors.email?.message]);
+  }, [wEmail, tab, user?.email, errors.email?.message, checkEmailAvailable]);
 
   const connectionsCount = userDoc?.stats?.connections ?? 0;
   const postsCount = myPosts.length;
@@ -321,8 +336,8 @@ export default function ProfilePage() {
 
     setUploadingAvatar(true);
     try {
-      const ext = (avatarFile.name.split(".").pop() || "jpg").toLowerCase();
-      const storagePath = `profile-pictures/${uid}/${Date.now()}.${ext}`;
+      // Keep one stable object per member so repeated edits overwrite instead of creating new files.
+      const storagePath = `profiles/${uid}/avatar`;
       const storageRef = ref(storage, storagePath);
       await uploadBytes(storageRef, avatarFile, { contentType: avatarFile.type });
       const url = await getDownloadURL(storageRef);
@@ -372,7 +387,7 @@ export default function ProfilePage() {
       }
 
       const avatar = await uploadNewAvatarIfNeeded();
-      if (avatar?.url && avatar?.storagePath) {
+      if (avatar?.url && avatar?.storagePath && userDoc?.avatarStoragePath && userDoc.avatarStoragePath !== avatar.storagePath) {
         await deleteOldAvatarIfPossible();
       }
 
@@ -381,6 +396,8 @@ export default function ProfilePage() {
         lastName,
         name: `${firstName} ${lastName}`.trim() || userDoc.name,
         email: emailLower || userDoc.email,
+        birthMonth: data.birthMonth === "" || data.birthMonth == null ? undefined : Number(data.birthMonth),
+        birthDay: data.birthDay === "" || data.birthDay == null ? undefined : Number(data.birthDay),
         bio: (data.bio ?? "").trim().slice(0, 100) || undefined,
         location: (data.location ?? "").trim() || undefined,
         countryCode,
@@ -400,7 +417,10 @@ export default function ProfilePage() {
       setAvatarFile(null);
       setAvatarPreview(null);
     } catch (e: any) {
-      const text = e?.message ?? "Failed to save profile";
+      const text = mapProfileSaveError(e);
+      if (String(e?.code ?? "") === "permission-denied" || String(e?.code ?? "") === "storage/unauthorized") {
+        setPermError(text);
+      }
       toast({ kind: "error", title: "Save failed", description: text });
     } finally {
       setSaving(false);
@@ -415,6 +435,8 @@ export default function ProfilePage() {
       bio: userDoc?.bio ?? "",
       location: userDoc?.location ?? "",
       email: (user?.email ?? userDoc?.email ?? "").toLowerCase(),
+      birthMonth: userDoc?.birthMonth ?? "",
+      birthDay: userDoc?.birthDay ?? "",
       countryCode: userDoc?.countryCode ?? "+1",
       phoneNumber: userDoc?.phoneNumber ?? "",
       sportsInterests: initSportsMap(userDoc),
@@ -456,20 +478,15 @@ export default function ProfilePage() {
         <Card>
           <CardBody>
             <div className="rounded-3xl overflow-hidden border border-slate-200 bg-white">
-              <div className="h-44 md:h-56 bg-gradient-to-r from-blue-500 to-indigo-600 relative">
-                <div className="absolute right-4 top-4">
-                  <Button variant="outline" type="button" disabled title="Coming soon">
-                    <span className="inline-flex items-center gap-2">📷 <span>Edit Cover</span></span>
-                  </Button>
-                </div>
+              <div className="h-40 md:h-56 bg-gradient-to-r from-blue-500 to-indigo-600 relative">
               </div>
 
-              <div className="px-6 pb-6">
-                <div className="relative -mt-16 md:-mt-20 flex items-end justify-between gap-4">
-                  <div className="flex items-end gap-4">
-                    <div className="relative h-32 w-32 md:h-40 md:w-40 rounded-full border-4 border-white shadow-sm overflow-hidden bg-slate-100">
+              <div className="px-4 pb-6 md:px-6">
+                <div className="relative -mt-16 md:-mt-20 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                    <div className="relative h-28 w-28 md:h-40 md:w-40 rounded-full border-4 border-white shadow-sm overflow-hidden bg-slate-100">
                       {currentAvatar ? (
-                        <Image src={currentAvatar} alt="Profile photo" fill className="object-cover" />
+                        <Image src={currentAvatar} alt="Profile photo" fill unoptimized className="object-cover" />
                       ) : (
                         <div className="h-full w-full grid place-items-center text-slate-500 text-sm">No photo</div>
                       )}
@@ -488,9 +505,9 @@ export default function ProfilePage() {
                       </button>
                     </div>
 
-                    <div className="pb-2">
+                    <div className="min-w-0 pb-1 md:pb-2">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-950">
+                        <div className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-950 break-words">
                           {(userDoc?.firstName || userDoc?.lastName)
                             ? `${userDoc?.firstName ?? ""} ${userDoc?.lastName ?? ""}`.trim()
                             : userDoc?.name ?? "Member"}
@@ -507,20 +524,15 @@ export default function ProfilePage() {
 
                       <div className="mt-2 text-slate-600 space-y-1">
                         <div className="text-sm">{(userDoc?.bio ?? "").slice(0, 100) || "—"}</div>
-                        <div className="text-sm flex flex-wrap gap-x-4 gap-y-1">
+                        <div className="text-sm flex flex-col gap-y-1 sm:flex-row sm:flex-wrap sm:gap-x-4">
                           <span>📍 {userDoc?.location ?? "—"}</span>
                           <span>📅 Joined {joined}</span>
-                          <span>✉️ {user.email}</span>
+                          <span className="break-all">✉️ {user.email}</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="pb-2">
-                    <Button variant="dark" onClick={() => setTab("edit")}>
-                      Edit Profile
-                    </Button>
-                  </div>
                 </div>
 
                 {/* Stats */}
@@ -537,11 +549,16 @@ export default function ProfilePage() {
         </Card>
 
         {/* Tabs */}
-        <div className="flex flex-wrap gap-2">
-          <TabButton active={tab === "posts"} onClick={() => setTab("posts")}>Posts</TabButton>
-          <TabButton active={tab === "about"} onClick={() => setTab("about")}>About</TabButton>
-          <TabButton active={tab === "achievements"} onClick={() => setTab("achievements")}>Achievements</TabButton>
-          <TabButton active={tab === "edit"} onClick={() => setTab("edit")}>Edit Profile</TabButton>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <TabButton active={tab === "posts"} onClick={() => setTab("posts")}>Posts</TabButton>
+            <TabButton active={tab === "about"} onClick={() => setTab("about")}>About</TabButton>
+          </div>
+          {tab !== "edit" && (
+            <Button variant="dark" className="w-full sm:w-auto" onClick={() => setTab("edit")}>
+              Edit Profile
+            </Button>
+          )}
         </div>
 
         {tab === "posts" && (
@@ -588,37 +605,21 @@ export default function ProfilePage() {
           </Card>
         )}
 
-        {tab === "achievements" && (
-          <Card>
-            <CardHeader>
-              <div className="font-extrabold tracking-tight text-lg">Achievements</div>
-              <div className="text-sm text-slate-600 mt-1">Badges and milestones (coming soon).</div>
-            </CardHeader>
-            <CardBody>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <BadgeCard title="First Post" desc="Share your first update." />
-                <BadgeCard title="Community Helper" desc="Comment on 10 posts." />
-                <BadgeCard title="Event Regular" desc="Attend 5 events." />
-              </div>
-            </CardBody>
-          </Card>
-        )}
-
         {tab === "edit" && (
           <Card>
             <CardHeader>
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
                   <div className="font-extrabold tracking-tight text-lg">Edit Profile</div>
                   <div className="text-sm text-slate-600 mt-1">
                     {hasUnsaved ? "You have unsaved changes." : "Make updates and save when ready."}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" onClick={cancelEdit} disabled={saving || uploadingAvatar}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button className="w-full sm:w-auto" variant="outline" onClick={cancelEdit} disabled={saving || uploadingAvatar}>
                     Cancel
                   </Button>
-                  <Button variant="dark" onClick={handleSubmit(onSave)} disabled={saving || uploadingAvatar}>
+                  <Button className="w-full sm:w-auto" variant="dark" onClick={handleSubmit(onSave)} disabled={saving || uploadingAvatar}>
                     {saving ? "Saving..." : "Save Changes"}
                   </Button>
                 </div>
@@ -733,6 +734,28 @@ export default function ProfilePage() {
                   <input type="hidden" {...register("phoneNumber")} />
                 </Field>
 
+                <Field label="Birth Month" error={errors.birthMonth?.message}>
+                  <Select className="bg-slate-100 border-slate-100" {...register("birthMonth")}>
+                    <option value="">Select month</option>
+                    {BIRTH_MONTHS.map((month) => (
+                      <option key={month.value} value={month.value}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
+                <Field label="Birth Day" error={errors.birthDay?.message}>
+                  <Select className="bg-slate-100 border-slate-100" {...register("birthDay")}>
+                    <option value="">Select day</option>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                      <option key={day} value={day}>
+                        {day}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+
                 <div className="md:col-span-2">
                   <div className="text-sm font-semibold text-slate-900 mb-2">Sports Interests</div>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -766,10 +789,10 @@ export default function ProfilePage() {
                     <Button variant="outline" type="button" onClick={() => fileRef.current?.click()} disabled={saving || uploadingAvatar}>
                       Choose image
                     </Button>
-                    <div className="text-xs text-slate-600">JPG/PNG, max 5MB</div>
+                    <div className="text-xs text-slate-600">JPG/PNG, max 5MB. Only one profile photo is stored per member.</div>
                     {avatarPreview && (
                       <div className="relative h-20 w-20 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100">
-                        <Image src={avatarPreview} alt="New avatar preview" fill className="object-cover" />
+                        <Image src={avatarPreview} alt="New avatar preview" fill unoptimized className="object-cover" />
                       </div>
                     )}
                   </div>
@@ -823,16 +846,6 @@ function Field({
       <div className="text-sm font-semibold text-slate-900">{label}</div>
       {children}
       {error && <div className="text-sm text-rose-700">{error}</div>}
-    </div>
-  );
-}
-
-function BadgeCard({ title, desc }: { title: string; desc: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-      <div className="font-extrabold text-slate-900">{title}</div>
-      <div className="text-sm text-slate-600 mt-1">{desc}</div>
-      <div className="mt-3 text-xs text-slate-500">Coming soon</div>
     </div>
   );
 }

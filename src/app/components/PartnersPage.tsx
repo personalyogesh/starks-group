@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Award,
   ExternalLink,
   Facebook,
@@ -19,8 +18,10 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
+import FeaturedPartnerSpotlight from "@/components/FeaturedPartnerSpotlight";
 import { isFirebaseConfigured } from "@/lib/firebaseClient";
 import { getAllPartners, Partner, PartnerTier, PartnerType } from "@/lib/firebase/partnersService";
+import { featuredPartnerFallback, toFeaturedPartnerContent } from "@/lib/featuredPartner";
 import { useAuth } from "@/lib/AuthContext";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
@@ -109,6 +110,16 @@ export default function PartnersPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const partnerId = new URLSearchParams(window.location.search).get("partner");
+    if (!partnerId || partners.length === 0) return;
+    const match = partners.find((partner) => partner.id === partnerId);
+    if (!match) return;
+    setSelected(match);
+    setDetailOpen(true);
+  }, [partners]);
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     return partners.filter((p) => {
@@ -139,40 +150,15 @@ export default function PartnersPage() {
     setDetailOpen(true);
   }
 
+  const featuredPartnerContent = useMemo(() => {
+    const featured = partners.find((partner) => partner.featured) ?? partners[0] ?? null;
+    return featured ? toFeaturedPartnerContent(featured) : featuredPartnerFallback;
+  }, [partners]);
+
   if (loading) return <LoadingSpinner message="Loading partners..." />;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16 gap-3">
-            <Link href="/" className="shrink-0">
-              <Button variant="outline">
-                <ArrowLeft className="size-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-
-            <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0">
-              <Image src="/starks-logo.jpg" alt="Starks Cricket" width={40} height={40} className="rounded-full" />
-              <div className="hidden sm:block leading-tight min-w-0">
-                <div className="text-lg font-extrabold text-brand-deep truncate">Starks Cricket</div>
-                <div className="text-xs text-slate-500 font-semibold">Estd. 2018</div>
-              </div>
-            </Link>
-
-            {isAdmin ? (
-              <Link href="/admin/partners" className="shrink-0">
-                <Button variant="dark">Manage Partners</Button>
-              </Link>
-            ) : (
-              <div className="w-[140px]" />
-            )}
-          </div>
-        </div>
-      </header>
-
       {/* Hero */}
       <section className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-16">
         <div className="max-w-6xl mx-auto px-4 text-center">
@@ -186,6 +172,16 @@ export default function PartnersPage() {
       </section>
 
       <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
+        {isAdmin && (
+          <div className="flex justify-end">
+            <Link href="/admin/partners">
+              <Button variant="dark">Manage Partners</Button>
+            </Link>
+          </div>
+        )}
+
+        <FeaturedPartnerSpotlight partner={featuredPartnerContent} showMoreDetails={false} />
+
         {/* Filters */}
         <Card>
           <CardBody>
@@ -267,12 +263,12 @@ export default function PartnersPage() {
             <CardBody>
               <div className="text-slate-600 text-center py-10">
                 <Award className="size-14 mx-auto text-slate-300 mb-3" />
-                <div className="font-extrabold text-slate-900">No Partners Yet</div>
-                <div className="mt-1 text-sm">We’re looking for partners to support our mission!</div>
+                <div className="font-extrabold text-slate-900">No Additional Partners Yet</div>
+                <div className="mt-1 text-sm">Our featured partner is highlighted above. More partners can be added anytime.</div>
                 {isAdmin && (
                   <div className="mt-5">
                     <Link href="/admin/partners">
-                      <Button variant="dark">Add First Partner</Button>
+                      <Button variant="dark">Add Another Partner</Button>
                     </Link>
                   </div>
                 )}
@@ -335,7 +331,7 @@ export default function PartnersPage() {
             <div className="flex items-start gap-4">
               <div className="relative h-20 w-20 rounded-2xl overflow-hidden border border-slate-200 bg-white shrink-0">
                 {selected.logoUrl ? (
-                  <Image src={selected.logoUrl} alt={`${selected.name} logo`} fill className="object-contain p-2" />
+                  <Image src={selected.logoUrl} alt={`${selected.name} logo`} fill unoptimized className="object-contain p-2" />
                 ) : (
                   <div className="h-full w-full grid place-items-center text-xs font-bold text-slate-500">Logo</div>
                 )}
@@ -380,7 +376,7 @@ export default function PartnersPage() {
                       key={idx}
                       className="relative aspect-video rounded-2xl overflow-hidden border border-slate-200 bg-slate-100"
                     >
-                      <Image src={url} alt={`${selected.name} ${idx + 1}`} fill className="object-cover" />
+                      <Image src={url} alt={`${selected.name} ${idx + 1}`} fill unoptimized className="object-cover" />
                     </div>
                   ))}
                 </div>
@@ -466,6 +462,7 @@ function PartnerGrid({
                     src={partner.logoUrl}
                     alt={partner.name}
                     fill
+                    unoptimized
                     className="object-contain group-hover:scale-105 transition-transform"
                   />
                 </div>

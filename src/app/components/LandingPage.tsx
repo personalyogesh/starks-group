@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Award, Calendar, MessageCircle, Users } from "lucide-react";
+import { Award, Calendar, Gift, MessageCircle, Users } from "lucide-react";
 
-import { listenCollection, EventDoc, LinkDoc, PostDoc, setRsvp } from "@/lib/firestore";
+import { listenCollection, BirthdayWishDoc, EventDoc, LinkDoc, PostDoc, setRsvp } from "@/lib/firestore";
 import { useAuth } from "@/lib/AuthContext";
 import { isFirebaseConfigured } from "@/lib/firebaseClient";
 
@@ -14,7 +15,9 @@ import Button from "@/components/ui/Button";
 import PostCard from "@/components/feed/PostCard";
 import LandingCarousel from "@/components/landing/LandingCarousel";
 import { AuthModal, AuthModalTrigger } from "@/app/components/AuthModal";
-import { getFeaturedPartners, Partner } from "@/lib/firebase/partnersService";
+import { getAllPartners, getFeaturedPartners, Partner } from "@/lib/firebase/partnersService";
+import FeaturedPartnerSpotlight from "@/components/FeaturedPartnerSpotlight";
+import { toFeaturedPartnerContent } from "@/lib/featuredPartner";
 
 function QrWelcomeBanner() {
   const searchParams = useSearchParams();
@@ -35,6 +38,17 @@ function QrWelcomeBanner() {
   );
 }
 
+function getTodayDisplayDateKey() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = (type: "year" | "month" | "day") => parts.find((part) => part.type === type)?.value ?? "00";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
 export default function LandingPage() {
   const { currentUser } = useAuth();
   const user = currentUser?.authUser ?? null;
@@ -46,7 +60,19 @@ export default function LandingPage() {
   const [events, setEvents] = useState<Array<{ id: string; data: EventDoc }>>([]);
   const [links, setLinks] = useState<Array<{ id: string; data: LinkDoc }>>([]);
   const [posts, setPosts] = useState<Array<{ id: string; data: PostDoc }>>([]);
+  const [birthdayWishes, setBirthdayWishes] = useState<Array<{ id: string; data: BirthdayWishDoc }>>([]);
   const [featuredPartners, setFeaturedPartners] = useState<Partner[]>([]);
+  const todayDisplayDateKey = getTodayDisplayDateKey();
+  const currentWishYear = Number(todayDisplayDateKey.slice(0, 4));
+  const todayBirthdayWishes = birthdayWishes
+    .filter(({ data }) => data.wishType === "birthday" && data.displayDateKey === todayDisplayDateKey)
+    .slice(0, 6);
+  const belatedBirthdayWishes = birthdayWishes
+    .filter(({ data }) => data.wishType === "belated" && data.wishYear === currentWishYear)
+    .slice(0, 6);
+  const spotlightPartner = featuredPartners[0] ?? null;
+  const logoPartners = featuredPartners.slice(1, 5);
+  const featuredPartnerContent = toFeaturedPartnerContent(spotlightPartner);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -62,7 +88,20 @@ export default function LandingPage() {
   }, []);
   useEffect(() => {
     if (!isFirebaseConfigured) return;
-    return listenCollection<PostDoc>("posts", setPosts, { limit: 10 });
+    return listenCollection<PostDoc>("posts", setPosts, {
+      whereField: "privacy",
+      whereOp: "==",
+      whereValue: "public",
+      limit: 10,
+    });
+  }, []);
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+    return listenCollection<BirthdayWishDoc>("birthdayWishes", setBirthdayWishes, {
+      orderByField: "postedAt",
+      direction: "desc",
+      limit: 24,
+    });
   }, []);
 
   useEffect(() => {
@@ -70,7 +109,8 @@ export default function LandingPage() {
     (async () => {
       if (!isFirebaseConfigured) return;
       try {
-        const rows = await getFeaturedPartners();
+        const featured = await getFeaturedPartners();
+        const rows = featured.length > 0 ? featured : await getAllPartners();
         if (!cancelled) setFeaturedPartners(rows.slice(0, 6));
       } catch {
         // ignore (partners are optional content)
@@ -131,6 +171,77 @@ export default function LandingPage() {
           <LandingCarousel />
         </div>
       </section>
+
+      {(todayBirthdayWishes.length > 0 || belatedBirthdayWishes.length > 0) && (
+        <section>
+          <div className="overflow-hidden rounded-[28px] border border-pink-200 bg-gradient-to-r from-pink-50 via-rose-50 to-amber-50 shadow-[0_12px_36px_rgba(244,114,182,0.12)]">
+            <div className="p-5 sm:p-6 lg:p-8">
+              <div className="max-w-3xl">
+                <div className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white/80 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.16em] text-pink-700">
+                  <Gift className="size-4" />
+                  Birthday Wishes
+                </div>
+                <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
+                  Celebrating our Starks members
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">
+                  Same-day wishes appear automatically on birthdays, and belated wishes help us catch members whose
+                  birthdays already passed before they added their details this year.
+                </p>
+              </div>
+
+              <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                {todayBirthdayWishes.length > 0 && (
+                  <div className="rounded-[24px] border border-white/80 bg-white/75 p-4 shadow-sm backdrop-blur sm:p-5">
+                    <div className="text-sm font-extrabold uppercase tracking-[0.14em] text-pink-700">
+                      Today&apos;s Birthday Wishes
+                    </div>
+                    <div className="mt-4 grid gap-3">
+                      {todayBirthdayWishes.map(({ id, data }) => (
+                        <div
+                          key={id}
+                          className="rounded-2xl border border-white/80 bg-white/90 px-4 py-4 shadow-sm backdrop-blur"
+                        >
+                          <div className="text-base font-bold text-slate-950">
+                            {data.message} <span aria-hidden="true">🎂</span>
+                          </div>
+                          <div className="mt-1 text-sm text-slate-600">
+                            Wishing {data.firstName} a fantastic day from the Starks community.
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {belatedBirthdayWishes.length > 0 && (
+                  <div className="rounded-[24px] border border-amber-200 bg-amber-50/80 p-4 shadow-sm sm:p-5">
+                    <div className="text-sm font-extrabold uppercase tracking-[0.14em] text-amber-700">
+                      Belated Birthday Wishes
+                    </div>
+                    <div className="mt-2 text-sm leading-6 text-slate-600">
+                      A one-time catch-up for members whose birthdays already happened this year before they added or
+                      updated their birthday details.
+                    </div>
+                    <div className="mt-4 grid gap-3">
+                      {belatedBirthdayWishes.map(({ id, data }) => (
+                        <div key={id} className="rounded-2xl border border-amber-200 bg-white px-4 py-4 shadow-sm">
+                          <div className="text-base font-bold text-slate-950">
+                            {data.message} <span aria-hidden="true">🎉</span>
+                          </div>
+                          <div className="mt-1 text-sm text-slate-600">
+                            Catching up with {data.firstName} and sending warm wishes from the Starks community.
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Community Preview Section */}
       <section className="px-4 py-10">
@@ -225,13 +336,17 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {featuredPartners.length > 0 ? (
+          <div className="mb-8">
+            <FeaturedPartnerSpotlight partner={featuredPartnerContent} />
+          </div>
+
+          {logoPartners.length > 0 ? (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
-                {featuredPartners.slice(0, 8).map((partner) => (
-                  <a
+                {logoPartners.map((partner) => (
+                  <Link
                     key={partner.id}
-                    href="/partners"
+                    href={`/partners?partner=${partner.id}`}
                     className="group rounded-2xl border border-slate-200 bg-white p-6 flex items-center justify-center hover:shadow-lg transition-all cursor-pointer"
                     title={partner.name}
                   >
@@ -241,29 +356,28 @@ export default function LandingPage() {
                           src={partner.logoUrl}
                           alt={partner.name}
                           fill
+                          unoptimized
                           className="object-contain grayscale group-hover:grayscale-0 transition-all"
                         />
                       </div>
                     ) : (
                       <Award className="size-10 text-slate-300" />
                     )}
-                  </a>
+                  </Link>
                 ))}
               </div>
 
               <div className="text-center">
-                <a href="/partners">
+                <Link href="/partners">
                   <Button variant="outline">View All Partners</Button>
-                </a>
+                </Link>
               </div>
             </>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-10 flex items-center justify-center">
-                  <Award className="size-10 text-slate-300" />
-                </div>
-              ))}
+            <div className="text-center">
+              <Link href="/partners">
+                <Button variant="outline">View All Partners</Button>
+              </Link>
             </div>
           )}
         </div>

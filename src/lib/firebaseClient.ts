@@ -1,8 +1,18 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import {
+  browserLocalPersistence,
+  browserSessionPersistence,
+  getAuth,
+  indexedDBLocalPersistence,
+  initializeAuth,
+} from "firebase/auth";
 import { getFirestore, initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
+import "firebase/auth";
+import "firebase/firestore";
+import "firebase/storage";
+import "firebase/functions";
 
 export const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -35,8 +45,30 @@ export function isFirebaseStorageBucketLikelyMisconfigured(): boolean {
   return Boolean(getFirebaseStorageBucketTroubleshootingMessage());
 }
 
-const app =
-  isFirebaseConfigured && (getApps().length ? getApp() : initializeApp(firebaseConfig));
+const isBrowser = typeof window !== "undefined";
+
+function getGlobalCache() {
+  return globalThis as typeof globalThis & {
+    __starksFirebaseApp?: ReturnType<typeof initializeApp>;
+    __starksFirebaseAuth?: ReturnType<typeof getAuth>;
+    __starksFirebaseDb?: ReturnType<typeof getFirestore>;
+    __starksFirebaseStorage?: ReturnType<typeof getStorage>;
+    __starksFirebaseFunctions?: ReturnType<typeof getFunctions>;
+  };
+}
+
+export function getClientApp() {
+  if (!isBrowser || !isFirebaseConfigured) return null as any;
+  const g = getGlobalCache();
+  if (g.__starksFirebaseApp) return g.__starksFirebaseApp;
+  try {
+    const instance = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    g.__starksFirebaseApp = instance;
+    return instance;
+  } catch {
+    return null as any;
+  }
+}
 
 function isLikelySafariOrIOS(): boolean {
   if (typeof navigator === "undefined") return false;
@@ -54,20 +86,81 @@ const shouldForceLongPolling =
 
 // Keep these exports typed as non-null so Firebase helpers (doc/collection/etc) typecheck cleanly.
 // Guard runtime usage with `isFirebaseConfigured` in UI/components.
-export const auth = app ? getAuth(app) : (null as any);
-export const db = (() => {
-  if (!app) return null as any;
+export function getClientAuth() {
+  const app = getClientApp();
+  if (!app || !isBrowser) return null as any;
+  const g = getGlobalCache();
+  if (g.__starksFirebaseAuth) return g.__starksFirebaseAuth;
+  try {
+    const instance = initializeAuth(app, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
+    });
+    g.__starksFirebaseAuth = instance;
+    return instance;
+  } catch {
+    try {
+      const instance = getAuth(app);
+      g.__starksFirebaseAuth = instance;
+      return instance;
+    } catch {
+      return null as any;
+    }
+  }
+}
+
+export function getClientDb() {
+  const app = getClientApp();
+  if (!app || !isBrowser) return null as any;
+  const g = getGlobalCache();
+  if (g.__starksFirebaseDb) return g.__starksFirebaseDb;
   // Long-polling is slower but tends to be more robust in iOS/Safari and certain environments.
   // Use auto-detect always; force only when we know it helps.
   try {
-    return initializeFirestore(app, {
+    const instance = initializeFirestore(app, {
       experimentalAutoDetectLongPolling: true,
       ...(shouldForceLongPolling ? { experimentalForceLongPolling: true } : {}),
     } as any);
+    g.__starksFirebaseDb = instance;
+    return instance;
   } catch {
-    return getFirestore(app);
+    try {
+      const instance = getFirestore(app);
+      g.__starksFirebaseDb = instance;
+      return instance;
+    } catch {
+      return null as any;
+    }
   }
-})();
-export const storage = app ? getStorage(app) : (null as any);
-export const functions = app ? getFunctions(app) : (null as any);
+}
+export const db = (() => getClientDb())();
+
+export function getClientStorage() {
+  const app = getClientApp();
+  if (!app || !isBrowser) return null as any;
+  const g = getGlobalCache();
+  if (g.__starksFirebaseStorage) return g.__starksFirebaseStorage;
+  try {
+    const instance = getStorage(app);
+    g.__starksFirebaseStorage = instance;
+    return instance;
+  } catch {
+    return null as any;
+  }
+}
+export const storage = (() => getClientStorage())();
+
+export function getClientFunctions() {
+  const app = getClientApp();
+  if (!app || !isBrowser) return null as any;
+  const g = getGlobalCache();
+  if (g.__starksFirebaseFunctions) return g.__starksFirebaseFunctions;
+  try {
+    const instance = getFunctions(app);
+    g.__starksFirebaseFunctions = instance;
+    return instance;
+  } catch {
+    return null as any;
+  }
+}
+export const functions = (() => getClientFunctions())();
 

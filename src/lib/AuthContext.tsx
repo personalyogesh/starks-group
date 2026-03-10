@@ -3,9 +3,14 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  browserLocalPersistence,
   onAuthStateChanged,
+  fetchSignInMethodsForEmail,
+  browserSessionPersistence,
   signInWithEmailAndPassword,
   signOut,
+  sendPasswordResetEmail,
+  setPersistence,
   createUserWithEmailAndPassword,
   updateProfile as fbUpdateProfile,
   GoogleAuthProvider,
@@ -14,7 +19,12 @@ import {
 } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
-import { auth, isFirebaseConfigured, storage, getFirebaseStorageBucketTroubleshootingMessage } from "@/lib/firebaseClient";
+import {
+  getClientAuth,
+  getClientStorage,
+  isFirebaseConfigured,
+  getFirebaseStorageBucketTroubleshootingMessage,
+} from "@/lib/firebaseClient";
 import { ensureUserDoc, getUser, touchLastLogin, updateUserProfile, UserDoc } from "@/lib/firestore";
 
 export type CurrentUser = {
@@ -22,17 +32,25 @@ export type CurrentUser = {
   userDoc: UserDoc | null;
 };
 
+type GoogleLoginResult = {
+  needsBirthday: boolean;
+};
+
 type AuthCtx = {
   currentUser: CurrentUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
+  login: (email: string, password: string, remember?: boolean) => Promise<void>;
+  loginWithGoogle: () => Promise<GoogleLoginResult>;
   logout: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  checkEmailAvailable: (email: string, currentEmail?: string | null) => Promise<boolean>;
   signup: (args: {
     email: string;
     password: string;
     firstName?: string;
     lastName?: string;
+    birthMonth?: number;
+    birthDay?: number;
     sportInterest?: string;
     joinAs?: string;
     countryCode?: string;
@@ -49,8 +67,10 @@ const Ctx = createContext<AuthCtx>({
   currentUser: null,
   loading: true,
   login: async () => {},
-  loginWithGoogle: async () => {},
+  loginWithGoogle: async () => ({ needsBirthday: false }),
   logout: async () => {},
+  forgotPassword: async () => {},
+  checkEmailAvailable: async () => true,
   signup: async () => {},
   updateProfile: async () => {},
 });
@@ -60,7 +80,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userDoc, setUserDoc] = useState<UserDoc | null>(null);
   const [loading, setLoading] = useState(true);
 
+  function requireAuth() {
+    if (!isFirebaseConfigured) {
+      throw new Error("Firebase isn’t configured.");
+    }
+    const auth = getClientAuth();
+    if (!auth) {
+      throw new Error("Authentication service is not ready. Please refresh and try again.");
+    }
+    return auth;
+  }
+
+  function requireStorage() {
+    const storage = getClientStorage();
+    if (!storage) {
+      throw new Error("Storage service is not ready. Please refresh and try again.");
+    }
+    return storage;
+  }
+
+  async function enforceUserStatus(uid: string, authClient: ReturnType<typeof getClientAuth>) {
+    const doc = await getUser(uid);
+    if (!doc) {
+      await signOut(authClient);
+      throw new Error("Account not found");
+    }
+
+    if (doc.suspended) {
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("starks:authError", "Your account is suspended. Please contact an administrator.");
+        }
+      } catch {
+        // ignore
+      }
+      await signOut(authClient);
+      throw new Error("Your account has been deactivated. Contact admin.");
+    }
+
+    if (doc.status === "pending") {
+      await signOut(authClient);
+      throw new Error("Account pending approval");
+    }
+
+    if (doc.status === "rejected") {
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("starks:authError", "Your account has been deactivated. Contact admin.");
+        }
+      } catch {
+        // ignore
+      }
+      await signOut(authClient);
+      throw new Error("Account has been deactivated");
+    }
+
+    return doc;
+  }
+
   useEffect(() => {
+    let active = true;
+    let unsub = () => {};
+    const auth = getClientAuth();
     if (!isFirebaseConfigured || !auth) {
       setAuthUser(null);
       setUserDoc(null);
@@ -68,7 +149,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const unsub = onAuthStateChanged(auth, async (u) => {
+    unsub = onAuthStateChanged(auth, async (u) => {
+      if (!active) return;
       setAuthUser(u);
       if (u) {
         try {
@@ -84,6 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // ignore
         }
         const doc = await getUser(u.uid);
+        if (!active) return;
         setUserDoc(doc);
         if (doc?.suspended) {
           try {
@@ -97,6 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // ignore
           }
           await signOut(auth);
+          if (!active) return;
           setAuthUser(null);
           setUserDoc(null);
         }
@@ -104,20 +188,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       else setUserDoc(null);
       setLoading(false);
     });
-    return () => unsub();
+    return () => {
+      active = false;
+      unsub();
+    };
   }, []);
 
-  const login = async (email: string, password: string) => {
-    if (!isFirebaseConfigured || !auth) {
-      throw new Error("Firebase isn’t configured.");
-    }
-    await signInWithEmailAndPassword(auth, email, password);
+  const login = async (email: string, password: string, remember = true) => {
+    const auth = requireAuth();
+    await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    await enforceUserStatus(cred.user.uid, auth);
   };
 
-  const loginWithGoogle = async () => {
-    if (!isFirebaseConfigured || !auth) {
-      throw new Error("Firebase isn’t configured.");
-    }
+  const loginWithGoogle = async (): Promise<GoogleLoginResult> => {
+    const auth = requireAuth();
 
     const provider = new GoogleAuthProvider();
     const cred = await signInWithPopup(auth, provider);
@@ -154,34 +239,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // - suspended/rejected users should not stay signed in
     // - pending users can stay signed in, but the UI will be read-only (canInteract=false)
     const doc = await getUser(cred.user.uid);
-    if (doc?.suspended) {
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem("starks:authError", "Your account is suspended. Please contact an administrator.");
-        }
-      } catch {
-        // ignore
-      }
-      await signOut(auth);
-      throw new Error("Account suspended");
-    }
-    if (doc?.status === "rejected") {
-      try {
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem("starks:authError", "Your account has been deactivated. Contact admin.");
-        }
-      } catch {
-        // ignore
-      }
-      await signOut(auth);
-      throw new Error("Account deactivated");
+    if (doc?.suspended || doc?.status === "rejected") {
+      await enforceUserStatus(cred.user.uid, auth);
     }
     // pending: allowed to remain signed in (read-only until approved)
+    const latestDoc = doc ?? (await getUser(cred.user.uid));
+    const needsBirthday = !latestDoc?.birthMonth || !latestDoc?.birthDay;
+    return { needsBirthday };
   };
 
   const logout = async () => {
+    const auth = getClientAuth();
     if (!isFirebaseConfigured || !auth) return;
     await signOut(auth);
+  };
+
+  const forgotPassword = async (email: string) => {
+    const auth = requireAuth();
+    await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+  };
+
+  const checkEmailAvailable = async (email: string, currentEmail?: string | null) => {
+    const emailLower = email.trim().toLowerCase();
+    if (!emailLower) return true;
+    if (emailLower === (currentEmail ?? "").trim().toLowerCase()) return true;
+    const auth = requireAuth();
+    const methods = await fetchSignInMethodsForEmail(auth, emailLower);
+    return methods.length === 0;
   };
 
   const signup: AuthCtx["signup"] = async ({
@@ -189,6 +273,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password,
     firstName,
     lastName,
+    birthMonth,
+    birthDay,
     sportInterest,
     joinAs,
     countryCode,
@@ -198,9 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     agreedToTerms,
     wantsUpdates,
   }) => {
-    if (!isFirebaseConfigured || !auth) {
-      throw new Error("Firebase isn’t configured.");
-    }
+    const auth = requireAuth();
 
     const normalizedEmail = email.trim().toLowerCase();
     const cred = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
@@ -215,6 +299,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (avatarFile) {
       const hint = getFirebaseStorageBucketTroubleshootingMessage();
       if (hint) throw new Error(hint);
+      const storage = requireStorage();
       const storageRef = ref(storage, `profiles/${cred.user.uid}/avatar.jpg`);
       await uploadBytes(storageRef, avatarFile, { contentType: avatarFile.type || "image/jpeg" });
       avatarUrl = await getDownloadURL(storageRef);
@@ -228,6 +313,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: fullName || normalizedEmail,
       firstName: firstName?.trim() || undefined,
       lastName: lastName?.trim() || undefined,
+      birthMonth,
+      birthDay,
       email: normalizedEmail,
       sportInterest,
       joinAs,
@@ -259,6 +346,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       loginWithGoogle,
       logout,
+      forgotPassword,
+      checkEmailAvailable,
       signup,
       updateProfile,
     };
