@@ -69,8 +69,9 @@ export function AuthModal({
     setError(null);
     setSubmitting(true);
     try {
-      await loginWithGoogle();
+      const result = await loginWithGoogle();
       onOpenChange(false);
+      router.push(result.needsBirthday ? "/profile" : "/dashboard");
     } catch (e: any) {
       setError(e?.message || "Google sign-in failed. Please try again.");
     } finally {

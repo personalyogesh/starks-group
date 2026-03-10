@@ -51,6 +51,7 @@ export default function LandingPage() {
   const user = currentUser?.authUser ?? null;
   const userDoc = currentUser?.userDoc ?? null;
   const isApproved = userDoc?.status === "approved" || userDoc?.status === "active";
+  const isAdmin = userDoc?.role === "admin";
   const [authGateOpen, setAuthGateOpen] = useState(false);
   const [authTrigger, setAuthTrigger] = useState<AuthModalTrigger>("general");
 
@@ -273,7 +274,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {(todayBirthdayWishes.length > 0 || belatedBirthdayWishes.length > 0) && (
+      {(todayBirthdayWishes.length > 0 || belatedBirthdayWishes.length > 0 || isAdmin) && (
         <section>
           <div className="overflow-hidden rounded-[28px] border border-pink-200 bg-gradient-to-r from-pink-50 via-rose-50 to-amber-50 shadow-[0_12px_36px_rgba(244,114,182,0.12)]">
             <div className="p-5 sm:p-6 lg:p-8">
@@ -308,11 +309,18 @@ export default function LandingPage() {
                           </div>
                         </div>
                       ))}
+                      {todayBirthdayWishes.length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-pink-200 bg-white/90 px-4 py-4 text-sm text-slate-600">
+                          {isAdmin
+                            ? "No same-day birthday wishes are active right now. They will appear here automatically on members' birthdays."
+                            : "No same-day birthday wishes are active right now."}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {belatedBirthdayWishes.length > 0 && (
+                {(belatedBirthdayWishes.length > 0 || isAdmin) && (
                   <div className="rounded-[24px] border border-amber-200 bg-amber-50/80 p-4 shadow-sm sm:p-5">
                     <div className="text-sm font-extrabold uppercase tracking-[0.14em] text-amber-700">
                       Belated Birthday Wishes
@@ -332,6 +340,13 @@ export default function LandingPage() {
                           </div>
                         </div>
                       ))}
+                      {belatedBirthdayWishes.length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-amber-200 bg-white px-4 py-4 text-sm text-slate-600">
+                          {isAdmin
+                            ? "No belated birthday catch-up wishes are active right now. Members with past birthdays this year will appear here after their details are saved."
+                            : "No belated birthday wishes are active right now."}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

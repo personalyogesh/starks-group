@@ -10,6 +10,7 @@ import {
   updateProfile as fbUpdateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
   User,
 } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -116,46 +117,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   };
 
-  const loginWithGoogle = async () => {
-    if (!isFirebaseConfigured || !auth) {
-      throw new Error("Firebase isn’t configured.");
-    }
+  const finalizeGoogleUser = async (user: User) => {
+    const email = (user.email ?? "").trim().toLowerCase();
+    const displayName = (user.displayName ?? "").trim();
 
-    const provider = new GoogleAuthProvider();
-    const cred = await signInWithPopup(auth, provider);
-
-    // Ensure a Firestore user doc exists (our app requires admin approval).
-    // IMPORTANT: don't overwrite an existing approved user back to "pending".
-    const email = (cred.user.email ?? "").trim().toLowerCase();
-    const displayName = (cred.user.displayName ?? "").trim();
-
-    const existing = await getUser(cred.user.uid);
+    const existing = await getUser(user.uid);
     if (existing) {
       const { requestedAt: _requestedAt, ...rest } = existing as any;
-      await ensureUserDoc(cred.user.uid, {
+      await ensureUserDoc(user.uid, {
         ...rest,
         name: rest.name || displayName || email || "Member",
         email: rest.email || email || "",
-        ...(rest.avatarUrl ? {} : cred.user.photoURL ? { avatarUrl: cred.user.photoURL } : {}),
+        ...(rest.avatarUrl ? {} : user.photoURL ? { avatarUrl: user.photoURL } : {}),
         stats: rest.stats ?? { posts: 0, connections: 0, events: 0, likes: 0 },
         status: rest.status ?? "pending",
         role: rest.role ?? "member",
       });
     } else {
-      await ensureUserDoc(cred.user.uid, {
+      await ensureUserDoc(user.uid, {
         name: displayName || email || "New Member",
         email,
-        ...(cred.user.photoURL ? { avatarUrl: cred.user.photoURL } : {}),
+        ...(user.photoURL ? { avatarUrl: user.photoURL } : {}),
         status: "pending",
         role: "member",
         stats: { posts: 0, connections: 0, events: 0, likes: 0 },
       });
     }
 
-    // Enforce security-sensitive gating rules:
-    // - suspended/rejected users should not stay signed in
-    // - pending users can stay signed in, but the UI will be read-only (canInteract=false)
-    const doc = await getUser(cred.user.uid);
+    const doc = await getUser(user.uid);
     if (doc?.suspended) {
       try {
         if (typeof window !== "undefined") {
@@ -178,8 +167,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signOut(auth);
       throw new Error("Account deactivated");
     }
-    const latestDoc = await getUser(cred.user.uid);
-    return { needsBirthday: !latestDoc?.birthMonth || !latestDoc?.birthDay };
+
+    return { needsBirthday: !doc?.birthMonth || !doc?.birthDay };
+  };
+
+  const loginWithGoogle = async () => {
+    if (!isFirebaseConfigured || !auth) {
+      throw new Error("Firebase isn’t configured.");
+    }
+
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+
+    try {
+      const cred = await signInWithPopup(auth, provider);
+      return await finalizeGoogleUser(cred.user);
+    } catch (err: any) {
+      const code = String(err?.code ?? "");
+      if (code === "auth/popup-blocked" || code === "auth/cancelled-popup-request") {
+        await signInWithRedirect(auth, provider);
+        return { needsBirthday: false };
+      }
+      if (code === "auth/unauthorized-domain") {
+        throw new Error("Google sign-in is not enabled for this site. Add this domain in Firebase Authentication authorized domains.");
+      }
+      if (code === "auth/operation-not-allowed") {
+        throw new Error("Google sign-in is not enabled in Firebase Authentication yet.");
+      }
+      if (code === "auth/account-exists-with-different-credential") {
+        throw new Error("This email already uses a different sign-in method. Sign in that way first, then link Google.");
+      }
+      throw err;
+    }
   };
 
   const logout = async () => {
