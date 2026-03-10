@@ -22,7 +22,7 @@ export default function Navbar() {
         <div className="py-4 flex items-center justify-between gap-4 relative">
           {/* Left: brand */}
           <Link
-            href={isLoggedIn ? "/dashboard" : "/"}
+            href="/"
             aria-label="Go to home"
             className="flex items-center gap-3 whitespace-nowrap hover:opacity-80 transition-opacity"
           >
@@ -102,51 +102,21 @@ export default function Navbar() {
             <div className="hidden sm:flex items-center gap-2">
               {user ? (
                 <>
-                  <Link href="/create-post" className="hidden sm:inline-flex">
+                  <Link href="/profile" className="hidden sm:inline-flex">
                     <Button size="sm" variant="dark">
-                      Create Post
+                      Profile
                     </Button>
                   </Link>
-
-                  {/* Compact account menu to avoid breaking the header alignment */}
-                  <details className="relative">
-                    <summary className="list-none">
+                  {userDoc?.role === "admin" && (
+                    <Link href="/admin" className="hidden sm:inline-flex">
                       <Button size="sm" variant="outline">
-                        Account
+                        Admin
                       </Button>
-                    </summary>
-                    <div className="absolute right-0 mt-2 w-64 rounded-2xl border border-slate-200 bg-white shadow-lg p-2">
-                      <div className="px-3 py-2 text-xs text-slate-600">
-                        <div className="font-semibold text-slate-900 truncate">{user.email}</div>
-                        <div className="mt-1">
-                          status: <b>{userDoc?.status ?? "unknown"}</b>
-                          {" · "}
-                          role: <b>{userDoc?.role ?? "unknown"}</b>
-                        </div>
-                      </div>
-                      <div className="h-px bg-slate-100 my-2" />
-                      <div className="grid">
-                        <Link className="rounded-xl px-3 py-2 hover:bg-slate-50" href="/profile">
-                          Profile
-                        </Link>
-                        <Link className="rounded-xl px-3 py-2 hover:bg-slate-50" href="/create-post">
-                          Create Post
-                        </Link>
-                        {userDoc?.role === "admin" && (
-                          <Link className="rounded-xl px-3 py-2 hover:bg-slate-50" href="/admin">
-                            Admin
-                          </Link>
-                        )}
-                        <button
-                          className="text-left rounded-xl px-3 py-2 hover:bg-slate-50 text-rose-700"
-                          onClick={logout}
-                          type="button"
-                        >
-                          Logout
-                        </button>
-                      </div>
-                    </div>
-                  </details>
+                    </Link>
+                  )}
+                  <Button size="sm" variant="outline" onClick={logout}>
+                    Logout
+                  </Button>
                 </>
               ) : (
                 <>

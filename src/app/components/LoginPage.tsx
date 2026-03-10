@@ -70,7 +70,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (loading) return;
     if (currentUser) {
-      router.replace(currentUser.userDoc?.birthMonth && currentUser.userDoc?.birthDay ? "/dashboard" : "/profile");
+      router.replace(currentUser.userDoc?.birthMonth && currentUser.userDoc?.birthDay ? "/" : "/profile");
     }
   }, [loading, currentUser, router]);
 
@@ -160,7 +160,7 @@ export default function LoginPage() {
       }
 
       setMsg({ kind: "success", text: "Signed in. Redirecting..." });
-      router.push("/dashboard");
+      router.push("/");
       setFailCount(0);
     } catch (err: any) {
       setMsg({ kind: "error", text: mapAuthError(err) });
@@ -189,7 +189,7 @@ export default function LoginPage() {
     try {
       const result = await loginWithGoogle();
       setMsg({ kind: "success", text: "Signed in. Redirecting..." });
-      router.push(result.needsBirthday ? "/profile" : "/dashboard");
+      router.push(result.needsBirthday ? "/profile" : "/");
       setFailCount(0);
     } catch (err: any) {
       setMsg({ kind: "error", text: err?.message ?? "Google sign-in failed" });
@@ -229,11 +229,11 @@ export default function LoginPage() {
         <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white shadow-sm px-8 py-8">
           <div className="text-2xl font-extrabold tracking-tight text-slate-950">You’re already signed in</div>
           <div className="mt-2 text-slate-600">
-            Redirecting to your dashboard… If you meant to switch accounts, sign out first.
+            Redirecting to the home page… If you meant to switch accounts, sign out first.
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Button variant="dark" onClick={() => router.push("/dashboard")}>
-              Go to Dashboard
+            <Button variant="dark" onClick={() => router.push("/")}>
+              Go Home
             </Button>
             <Button
               variant="outline"

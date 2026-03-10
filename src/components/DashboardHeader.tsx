@@ -12,7 +12,7 @@ import { UserAccountMenu } from "@/app/components/UserAccountMenu";
 import { MobileNav } from "@/app/components/MobileNav";
 import { useToast } from "@/components/ui/ToastProvider";
 import { ThemeToggle } from "@/app/components/ThemeToggle";
-import { Award, Bell, DollarSign, Home, PlusCircle, Search } from "lucide-react";
+import { Award, Bell, DollarSign, Home, PlusCircle, Search, Users } from "lucide-react";
 import { MobileSidebar } from "@/app/components/MobileSidebar";
 
 function initialsFromName(name?: string | null) {
@@ -67,7 +67,7 @@ export default function DashboardHeader() {
           <div className="flex items-center gap-6">
             <button
               type="button"
-              onClick={() => router.push(isAuthenticated ? "/dashboard" : "/")}
+              onClick={() => router.push("/")}
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
               aria-label="Go to home"
             >
@@ -83,6 +83,19 @@ export default function DashboardHeader() {
             <nav className="hidden lg:flex items-center gap-1">
               <button
                 type="button"
+                onClick={() => router.push("/")}
+                className={[
+                  "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition",
+                  isActiveTopNav(pathname, "/")
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
+                ].join(" ")}
+              >
+                <Home className="size-4" />
+                Home
+              </button>
+              <button
+                type="button"
                 onClick={() => router.push("/dashboard")}
                 className={[
                   "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition",
@@ -91,7 +104,7 @@ export default function DashboardHeader() {
                     : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
                 ].join(" ")}
               >
-                <Home className="size-4" />
+                <Users className="size-4" />
                 Community
               </button>
               <button
