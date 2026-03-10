@@ -235,6 +235,9 @@ export default function LoginPage() {
             <Button variant="dark" onClick={() => router.push("/")}>
               Go Home
             </Button>
+            <Button variant="outline" onClick={() => router.push("/settings")}>
+              Reset Password
+            </Button>
             <Button
               variant="outline"
               onClick={async () => {
@@ -377,6 +380,10 @@ export default function LoginPage() {
             >
               Forgot password?
             </button>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            Already signed in on this device? Open <Link href="/settings" className="font-semibold text-blue-600 hover:underline">Settings</Link> to send yourself a password reset email.
           </div>
 
           <Button type="submit" variant="dark" disabled={!canSubmit} className="w-full py-4 rounded-2xl text-xl">
