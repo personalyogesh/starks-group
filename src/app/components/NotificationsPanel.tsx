@@ -80,7 +80,7 @@ export default function NotificationsPanel() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <Link href="/dashboard">
+        <Link href="/community">
           <Button variant="outline">
             <ArrowLeft className="size-4 mr-2" />
             Back

@@ -198,7 +198,7 @@ export default function AdminPage() {
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         <Breadcrumbs
           items={[
-            { label: "Dashboard", href: "/dashboard" },
+            { label: "Community", href: "/community" },
             { label: "Admin", onClick: () => router.push("/admin") },
           ]}
         />
@@ -213,8 +213,8 @@ export default function AdminPage() {
             <span className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold">
               🛡️ Administrator
             </span>
-            <Link href="/dashboard">
-              <Button variant="outline">Back to Feed</Button>
+            <Link href="/community">
+              <Button variant="outline">Back to Community</Button>
             </Link>
           </div>
         </div>

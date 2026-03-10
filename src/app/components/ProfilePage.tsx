@@ -454,7 +454,7 @@ export default function ProfilePage() {
     <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8 space-y-6">
         <Breadcrumbs
           items={[
-            { label: "Dashboard", href: "/dashboard" },
+            { label: "Community", href: "/community" },
             { label: "Profile", onClick: () => router.push("/profile") },
           ]}
         />

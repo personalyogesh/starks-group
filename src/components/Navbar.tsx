@@ -55,7 +55,7 @@ export default function Navbar() {
             <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/partners">
               Partners
             </Link>
-            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/dashboard">
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/community">
               Community
             </Link>
           </nav>
@@ -79,8 +79,8 @@ export default function Navbar() {
                   : undefined
               }
               onNavigate={(page) => {
-                if (page === "dashboard") return window.location.assign("/dashboard");
-                if (page === "members" || page === "community") return window.location.assign("/members");
+                if (page === "dashboard" || page === "community") return window.location.assign("/community");
+                if (page === "members") return window.location.assign("/members");
                 if (page === "events") return window.location.assign("/events");
                 if (page === "videos") return window.location.assign("/videos");
                 if (page === "partners") return window.location.assign("/partners");

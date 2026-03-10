@@ -66,8 +66,8 @@ export default function MemberProfilePage() {
           <h1 className="text-2xl font-extrabold tracking-tight">Member Profile</h1>
           <p className="text-slate-600 mt-1">Private member view.</p>
         </div>
-        <Link href="/dashboard">
-          <Button variant="outline">Back to Feed</Button>
+        <Link href="/community">
+          <Button variant="outline">Back to Community</Button>
         </Link>
       </div>
 

@@ -183,7 +183,7 @@ export default function PostCard({
     try {
       const origin =
         typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
-      const url = `${origin}/dashboard?post=${encodeURIComponent(postId)}`;
+      const url = `${origin}/community?post=${encodeURIComponent(postId)}`;
       await navigator.clipboard.writeText(url);
       toast({ kind: "success", title: "Link copied", description: "You can paste it anywhere." });
     } catch {

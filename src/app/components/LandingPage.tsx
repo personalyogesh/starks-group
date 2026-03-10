@@ -183,7 +183,7 @@ export default function LandingPage() {
 
           {/* Updated CTA buttons */}
           <div className="flex flex-wrap gap-3">
-            <a href="/dashboard">
+            <a href="/community">
               <Button variant="dark" className="px-6 py-3 rounded-2xl">
                 Explore Community
               </Button>
@@ -363,7 +363,7 @@ export default function LandingPage() {
           <p className="text-lg text-slate-600 mb-6">
             Browse our community feed, discover events, and connect with fellow cricket enthusiasts.
           </p>
-          <a href="/dashboard">
+          <a href="/community">
             <Button variant="dark">Explore Community Feed</Button>
           </a>
         </div>
@@ -416,7 +416,7 @@ export default function LandingPage() {
               </p>
 
               <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-                <a href="/dashboard">
+                <a href="/community">
                   <Button
                     variant="outline"
                     className="bg-white text-slate-950 border-white/20 hover:bg-white/90 px-7 py-3 rounded-2xl"
@@ -610,7 +610,7 @@ export default function LandingPage() {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-extrabold tracking-tight text-slate-950">Latest Posts</h2>
-          <a href="/dashboard">
+          <a href="/community">
             <Button variant="outline">Explore Feed</Button>
           </a>
         </div>

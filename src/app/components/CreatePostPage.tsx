@@ -152,7 +152,7 @@ export default function CreatePostPage() {
       }
 
       setMsg({ kind: "success", text: "Post published." });
-      router.push("/dashboard");
+      router.push("/community");
     } catch (err: any) {
       setMsg({ kind: "error", text: err?.message ?? "Failed to upload. Try again." });
     } finally {
@@ -167,10 +167,10 @@ export default function CreatePostPage() {
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
         {/* Top bar */}
         <div className="flex items-center justify-between">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <Link href="/community" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity">
             <span className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
               <ArrowLeft className="size-4" />
-              Back to Dashboard
+              Back to Community
             </span>
           </Link>
           <Button

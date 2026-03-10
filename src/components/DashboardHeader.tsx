@@ -23,7 +23,14 @@ function initialsFromName(name?: string | null) {
 }
 
 function isActiveTopNav(pathname: string, href: string) {
-  if (href === "/dashboard") return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  if (href === "/community") {
+    return (
+      pathname === "/community" ||
+      pathname.startsWith("/community/") ||
+      pathname === "/dashboard" ||
+      pathname.startsWith("/dashboard/")
+    );
+  }
   if (href === "/partners") return pathname === "/partners" || pathname.startsWith("/partners/");
   if (href === "/payments") return pathname === "/payments" || pathname.startsWith("/payments/");
   return pathname === href;
@@ -96,10 +103,10 @@ export default function DashboardHeader() {
               </button>
               <button
                 type="button"
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.push("/community")}
                 className={[
                   "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition",
-                  isActiveTopNav(pathname, "/dashboard")
+                  isActiveTopNav(pathname, "/community")
                     ? "bg-blue-50 text-blue-700"
                     : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
                 ].join(" ")}
@@ -177,8 +184,8 @@ export default function DashboardHeader() {
                   : undefined
               }
               onNavigate={(page) => {
-                if (page === "dashboard") return router.push("/dashboard");
-                if (page === "members" || page === "community") return router.push("/members");
+                if (page === "dashboard" || page === "community") return router.push("/community");
+                if (page === "members") return router.push("/members");
                 if (page === "events") return router.push("/events");
                 if (page === "videos") return router.push("/videos");
                 if (page === "partners") return router.push("/partners");

@@ -101,7 +101,7 @@ export default function UserDashboard() {
 
   const onNavigate = (page: string) => {
     if (page === "landing") return router.push("/");
-    if (page === "dashboard") return router.push("/dashboard");
+    if (page === "dashboard" || page === "community") return router.push("/community");
     if (page === "create-post") return router.push("/create-post");
     if (page === "profile" || page === "edit-profile") return router.push("/profile");
     if (page === "settings") return router.push("/settings");
@@ -109,7 +109,7 @@ export default function UserDashboard() {
     if (page === "payments") return router.push("/payments");
     if (page === "login") return router.push("/login");
     if (page === "register") return router.push("/register");
-    if (page === "members" || page === "community") return router.push("/members");
+    if (page === "members") return router.push("/members");
     if (page === "events") return router.push("/events");
     if (page === "videos") return router.push("/videos");
     if (page === "partners") return router.push("/partners");
@@ -335,7 +335,7 @@ export default function UserDashboard() {
     });
   }
 
-  if (loading) return <LoadingSpinner message="Loading your dashboard..." />;
+  if (loading) return <LoadingSpinner message="Loading community..." />;
 
   const hasAnyPosts = appliedFirstPage.length > 0 || incomingFirstPage.length > 0 || olderPosts.length > 0;
 
