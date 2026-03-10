@@ -63,10 +63,9 @@ service cloud.firestore {
         || (
           signedIn()
           && request.auth.uid == uid
-          // Prevent privilege escalation / approval bypass.
-          && request.resource.data.role == resource.data.role
-          && request.resource.data.status == resource.data.status
-          && request.resource.data.suspended == resource.data.suspended
+          // Prevent privilege escalation / approval bypass while still allowing
+          // normal profile edits on legacy docs with sparse fields.
+          && !changedKeys().hasAny(["role", "status", "suspended"])
         );
 
       allow delete: if signedIn()
