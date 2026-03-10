@@ -91,6 +91,8 @@ export default function RegisterPage() {
       bio: "",
       sportInterest: "",
       role: "",
+      birthMonth: "" as any,
+      birthDay: "" as any,
       agreedToTerms: false,
     },
     mode: "onTouched",
@@ -197,6 +199,8 @@ export default function RegisterPage() {
         password: data.password,
         firstName,
         lastName,
+        birthMonth: Number(data.birthMonth),
+        birthDay: Number(data.birthDay),
         countryCode: data.countryCode,
         phoneNumber: digits,
         bio: (data.bio ?? "").trim() || undefined,
@@ -224,10 +228,10 @@ export default function RegisterPage() {
     setSubmitting(true);
     setMsg(null);
     try {
-      await loginWithGoogle();
+      const result = await loginWithGoogle();
       // Google users remain signed in, but are read-only until admin approval.
       setMsg({ kind: "success", text: "Signed in with Google! Awaiting admin approval." });
-      router.push("/dashboard");
+      router.push(result.needsBirthday ? "/profile" : "/dashboard");
     } catch (err: any) {
       const text = err?.message ?? "Google sign-in failed";
       setMsg({ kind: "error", text });
@@ -445,6 +449,47 @@ export default function RegisterPage() {
               {errors.phoneNumber?.message && (
                 <div className="text-sm text-rose-700">{errors.phoneNumber.message}</div>
               )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid gap-3">
+              <label className="text-xl font-semibold text-slate-950">Birth Month</label>
+              <Select className="bg-slate-100 border-slate-100 focus:border-brand-primary" {...register("birthMonth")}>
+                <option value="">Select month</option>
+                {[
+                  "January",
+                  "February",
+                  "March",
+                  "April",
+                  "May",
+                  "June",
+                  "July",
+                  "August",
+                  "September",
+                  "October",
+                  "November",
+                  "December",
+                ].map((month, index) => (
+                  <option key={month} value={index + 1}>
+                    {month}
+                  </option>
+                ))}
+              </Select>
+              {errors.birthMonth?.message && <div className="text-sm text-rose-700">{errors.birthMonth.message}</div>}
+            </div>
+
+            <div className="grid gap-3">
+              <label className="text-xl font-semibold text-slate-950">Birth Day</label>
+              <Select className="bg-slate-100 border-slate-100 focus:border-brand-primary" {...register("birthDay")}>
+                <option value="">Select day</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                  <option key={day} value={day}>
+                    {day}
+                  </option>
+                ))}
+              </Select>
+              {errors.birthDay?.message && <div className="text-sm text-rose-700">{errors.birthDay.message}</div>}
             </div>
           </div>
 

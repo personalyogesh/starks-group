@@ -26,13 +26,15 @@ type AuthCtx = {
   currentUser: CurrentUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: () => Promise<{ needsBirthday: boolean }>;
   logout: () => Promise<void>;
   signup: (args: {
     email: string;
     password: string;
     firstName?: string;
     lastName?: string;
+    birthMonth?: number;
+    birthDay?: number;
     sportInterest?: string;
     joinAs?: string;
     countryCode?: string;
@@ -49,7 +51,7 @@ const Ctx = createContext<AuthCtx>({
   currentUser: null,
   loading: true,
   login: async () => {},
-  loginWithGoogle: async () => {},
+  loginWithGoogle: async () => ({ needsBirthday: false }),
   logout: async () => {},
   signup: async () => {},
   updateProfile: async () => {},
@@ -176,7 +178,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signOut(auth);
       throw new Error("Account deactivated");
     }
-    // pending: allowed to remain signed in (read-only until approved)
+    const latestDoc = await getUser(cred.user.uid);
+    const needsBirthday = !latestDoc?.birthMonth || !latestDoc?.birthDay;
+    return { needsBirthday };
   };
 
   const logout = async () => {
@@ -189,6 +193,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password,
     firstName,
     lastName,
+    birthMonth,
+    birthDay,
     sportInterest,
     joinAs,
     countryCode,
@@ -228,6 +234,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: fullName || normalizedEmail,
       firstName: firstName?.trim() || undefined,
       lastName: lastName?.trim() || undefined,
+      birthMonth,
+      birthDay,
       email: normalizedEmail,
       sportInterest,
       joinAs,
