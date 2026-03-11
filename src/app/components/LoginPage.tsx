@@ -18,7 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import logo from "@/assets/starks-logo.jpg";
 import { auth, isFirebaseConfigured } from "@/lib/firebaseClient";
 import { useAuth } from "@/lib/AuthContext";
-import { getUser } from "@/lib/firestore";
+import { ensureUserDoc, getUser } from "@/lib/firestore";
 import { useHydrated } from "@/lib/useHydrated";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -36,6 +36,14 @@ function mapAuthError(err: any): string {
   if (code === "auth/unauthorized-domain") return "Google sign-in is not enabled for this site yet.";
   if (code === "auth/operation-not-allowed") return "Google sign-in is not enabled in Firebase yet.";
   return err?.message ?? "Login failed";
+}
+
+function nameParts(displayName?: string | null) {
+  const parts = (displayName ?? "").trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: parts[0] || undefined,
+    lastName: parts.slice(1).join(" ") || undefined,
+  };
 }
 
 export default function LoginPage() {
@@ -136,8 +144,22 @@ export default function LoginPage() {
       // Fetch user profile doc and enforce status rules.
       const doc = await getUser(cred.user.uid);
       if (!doc) {
+        const { firstName, lastName } = nameParts(cred.user.displayName);
+        await ensureUserDoc(cred.user.uid, {
+          name: cred.user.displayName?.trim() || emailLower,
+          firstName,
+          lastName,
+          email: emailLower,
+          ...(cred.user.photoURL ? { avatarUrl: cred.user.photoURL } : {}),
+          status: "pending",
+          role: "member",
+          stats: { posts: 0, connections: 0, events: 0, likes: 0 },
+        });
         await signOut(auth);
-        setMsg({ kind: "error", text: "Account not found" });
+        setMsg({
+          kind: "success",
+          text: "We restored your incomplete member record. Your account is pending admin approval.",
+        });
         return;
       }
 

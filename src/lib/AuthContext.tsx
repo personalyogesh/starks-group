@@ -234,16 +234,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fbUpdateProfile(cred.user, { displayName: fullName });
     }
 
-    // Optional avatar upload (after Auth user is created so we have uid)
-    let avatarUrl: string | undefined;
-    if (avatarFile) {
-      const hint = getFirebaseStorageBucketTroubleshootingMessage();
-      if (hint) throw new Error(hint);
-      const storageRef = ref(storage, `profiles/${cred.user.uid}/avatar.jpg`);
-      await uploadBytes(storageRef, avatarFile, { contentType: avatarFile.type || "image/jpeg" });
-      avatarUrl = await getDownloadURL(storageRef);
-    }
-
     const cc = countryCode?.trim() || undefined;
     const pn = phoneNumber?.replace(/\D/g, "").trim() || undefined;
     const fullPhoneNumber = cc && pn ? `${cc}${pn}` : undefined;
@@ -262,13 +252,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       fullPhoneNumber,
       phone: fullPhoneNumber,
       bio: bio?.trim() || undefined,
-      ...(avatarUrl ? { avatarUrl } : {}),
       agreedToTerms,
       wantsUpdates,
       status: "pending",
       role: "member",
       stats: { posts: 0, connections: 0, events: 0, likes: 0 },
     });
+
+    // Optional avatar upload should not block account creation. If it fails, the
+    // member can still sign in and update the photo later from profile settings.
+    if (avatarFile) {
+      const hint = getFirebaseStorageBucketTroubleshootingMessage();
+      if (!hint) {
+        try {
+          const storagePath = `profiles/${cred.user.uid}/avatar.jpg`;
+          const storageRef = ref(storage, storagePath);
+          await uploadBytes(storageRef, avatarFile, { contentType: avatarFile.type || "image/jpeg" });
+          const avatarUrl = await getDownloadURL(storageRef);
+          await updateUserProfile(cred.user.uid, { avatarUrl, avatarStoragePath: storagePath });
+        } catch (err) {
+          console.warn("[AuthContext] avatar upload skipped during signup", { err });
+        }
+      }
+    }
   };
 
   const updateProfile = async (patch: Partial<UserDoc>) => {
