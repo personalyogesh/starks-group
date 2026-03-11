@@ -62,8 +62,12 @@ function monthDayValue(month?: number, day?: number) {
   return month && day ? month * 100 + day : -1;
 }
 
+function isBirthdayEligibleStatus(status?: string) {
+  return status === "approved" || status === "active";
+}
+
 function getBirthdayState(user: BirthdayUserDoc, today = getTodayParts()) {
-  if (user.status !== "approved" || user.suspended === true || !user.birthMonth || !user.birthDay) {
+  if (!isBirthdayEligibleStatus(user.status) || user.suspended === true || !user.birthMonth || !user.birthDay) {
     return { showTodayBirthday: false, belatedEligible: false };
   }
 
@@ -179,7 +183,7 @@ async function syncAutomaticBirthdayWishes() {
     deleted += 1;
   }
 
-  const snap = await db.collection("users").where("status", "==", "approved").get();
+  const snap = await db.collection("users").where("status", "in", ["approved", "active"]).get();
   let created = 0;
   for (const userDoc of snap.docs) {
     const changed = await syncBirthdayWishForUser(userDoc.id, userDoc.data() as BirthdayUserDoc, today);
