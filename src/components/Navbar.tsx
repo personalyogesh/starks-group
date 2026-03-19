@@ -19,7 +19,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white dark:bg-slate-950 dark:border-slate-800">
       <Container>
-        <div className="py-4 flex items-center justify-between gap-4 relative">
+        <div className="flex items-center gap-4 py-4">
           {/* Left: brand */}
           <Link
             href="/"
@@ -41,27 +41,29 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {/* Center: nav (desktop) — absolute center to match Figma even when right side changes */}
-          <nav className="hidden md:flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-200 absolute left-1/2 -translate-x-1/2 whitespace-nowrap">
+          <nav className="hidden xl:flex min-w-0 flex-1 items-center justify-center gap-1 text-sm font-semibold text-slate-600 dark:text-slate-200">
             <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/#about">
               About
-            </Link>
-            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/#programs">
-              Programs
-            </Link>
-            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href={isLoggedIn ? "/events" : "/#events"}>
-              Events
-            </Link>
-            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/partners">
-              Partners
             </Link>
             <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/community">
               Community
             </Link>
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href={isLoggedIn ? "/events" : "/#events"}>
+              Events
+            </Link>
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/fixtures">
+              Fixtures
+            </Link>
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/gallery">
+              Key Moments
+            </Link>
+            <Link className="rounded-xl px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition" href="/partners">
+              Partners
+            </Link>
           </nav>
 
           {/* Right: actions */}
-          <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+          <div className="ml-auto flex items-center justify-end gap-2 whitespace-nowrap">
             <MobileSidebar
               isAuthenticated={isLoggedIn}
               userProfile={
@@ -82,6 +84,8 @@ export default function Navbar() {
                 if (page === "dashboard" || page === "community") return window.location.assign("/community");
                 if (page === "members") return window.location.assign("/members");
                 if (page === "events") return window.location.assign("/events");
+                if (page === "fixtures") return window.location.assign("/fixtures");
+                if (page === "gallery") return window.location.assign("/gallery");
                 if (page === "videos") return window.location.assign("/videos");
                 if (page === "partners") return window.location.assign("/partners");
                 if (page === "payments") return window.location.assign("/payments");

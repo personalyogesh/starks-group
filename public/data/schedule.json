@@ -1,0 +1,62 @@
+[
+  {
+    "id": "match-001",
+    "format": "T20",
+    "date": "2026-04-05",
+    "time": "09:00 AM",
+    "team1": "Starks",
+    "team2": "Falcons",
+    "ground": "Morrisville Community Park",
+    "umpiringTeam": "Warriors"
+  },
+  {
+    "id": "match-002",
+    "format": "HT",
+    "date": "2026-04-05",
+    "time": "01:30 PM",
+    "team1": "Titans",
+    "team2": "Chargers",
+    "ground": "Church Street Park",
+    "umpiringTeam": "Starks"
+  },
+  {
+    "id": "match-003",
+    "format": "PL",
+    "date": "2026-04-12",
+    "time": "08:30 AM",
+    "team1": "Royals",
+    "team2": "Starks",
+    "ground": "Cedar Fork District Park",
+    "umpiringTeam": "Falcons"
+  },
+  {
+    "id": "match-004",
+    "format": "T20",
+    "date": "2026-04-12",
+    "time": "12:00 PM",
+    "team1": "Warriors",
+    "team2": "Knights",
+    "ground": "Morrisville Community Park",
+    "umpiringTeam": "Titans"
+  },
+  {
+    "id": "match-005",
+    "format": "HT",
+    "date": "2026-04-19",
+    "time": "09:30 AM",
+    "team1": "Starks",
+    "team2": "Kings",
+    "ground": "Church Street Park",
+    "umpiringTeam": "Royals"
+  },
+  {
+    "id": "match-006",
+    "format": "PL",
+    "date": "2026-04-19",
+    "time": "02:00 PM",
+    "team1": "Falcons",
+    "team2": "Warriors",
+    "ground": "Cedar Fork District Park",
+    "umpiringTeam": "Chargers"
+  }
+]

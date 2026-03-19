@@ -308,6 +308,16 @@ export default function AdminPage() {
                     💰 Financial Dashboard
                   </Button>
                 </Link>
+                <Link href="/admin/fixtures">
+                  <Button variant="outline" className="w-full">
+                    📅 Manage Fixtures
+                  </Button>
+                </Link>
+                <Link href="/gallery">
+                  <Button variant="outline" className="w-full">
+                    📸 View Key Moments
+                  </Button>
+                </Link>
                 <Link href="/create-post">
                   <Button variant="outline" className="w-full">
                     📝 Create Post

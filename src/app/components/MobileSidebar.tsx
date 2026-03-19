@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 import Button from "@/components/ui/Button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
@@ -17,7 +17,9 @@ import {
   DollarSign,
   HelpCircle,
   Home,
+  Image as ImageIcon,
   Info,
+  ListFilter,
   LogOut,
   Menu,
   Phone,
@@ -59,7 +61,7 @@ function MenuItem({
   iconColor = "text-slate-700",
   bgColor = "hover:bg-slate-50",
 }: {
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   badge?: string | number | null;
   onClick: () => void;
@@ -90,12 +92,7 @@ function MenuItem({
 }
 
 export function MobileSidebar({ isAuthenticated, userProfile, onNavigate, onLogout }: Props) {
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,7 +119,7 @@ export function MobileSidebar({ isAuthenticated, userProfile, onNavigate, onLogo
     <>
       <button
         type="button"
-        className="lg:hidden relative h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition grid place-items-center dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+        className="xl:hidden relative h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition grid place-items-center dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
         aria-label="Open menu"
         onClick={() => setOpen(true)}
       >
@@ -130,7 +127,7 @@ export function MobileSidebar({ isAuthenticated, userProfile, onNavigate, onLogo
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[320] lg:hidden">
+        <div className="fixed inset-0 z-[320] xl:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} aria-hidden="true" />
 
           <div className="absolute left-0 top-0 bottom-0 w-[85vw] max-w-sm bg-white shadow-xl border-r border-slate-200 flex flex-col dark:bg-slate-950 dark:border-slate-800">
@@ -203,6 +200,8 @@ export function MobileSidebar({ isAuthenticated, userProfile, onNavigate, onLogo
                   <MenuItem icon={Home} label="Community Feed" onClick={() => handleNavigate("dashboard")} iconColor="text-blue-600" bgColor="hover:bg-blue-50" />
                   <MenuItem icon={Users} label="Members" onClick={() => handleNavigate("members")} iconColor="text-purple-600" bgColor="hover:bg-purple-50" />
                   <MenuItem icon={Calendar} label="Events" onClick={() => handleNavigate("events")} iconColor="text-green-600" bgColor="hover:bg-green-50" />
+                  <MenuItem icon={ListFilter} label="Fixtures" onClick={() => handleNavigate("fixtures")} iconColor="text-blue-600" bgColor="hover:bg-blue-50" />
+                  <MenuItem icon={ImageIcon} label="Key Moments" onClick={() => handleNavigate("gallery")} iconColor="text-pink-600" bgColor="hover:bg-pink-50" />
                   <MenuItem icon={Video} label="Videos & Media" onClick={() => handleNavigate("videos")} iconColor="text-red-600" bgColor="hover:bg-red-50" />
                   <MenuItem icon={Award} label="Partners" onClick={() => handleNavigate("partners")} iconColor="text-amber-600" bgColor="hover:bg-amber-50" />
                   {isAuthenticated && (
@@ -294,15 +293,15 @@ export function MobileSidebar({ isAuthenticated, userProfile, onNavigate, onLogo
                 <span>v1.0.0</span>
               </div>
               <div className="flex justify-center gap-3 mt-2">
-                <a href="/privacy" className="text-xs text-slate-500 hover:text-blue-700">
+                <Link href="/privacy" className="text-xs text-slate-500 hover:text-blue-700">
                   Privacy
-                </a>
-                <a href="/terms" className="text-xs text-slate-500 hover:text-blue-700">
+                </Link>
+                <Link href="/terms" className="text-xs text-slate-500 hover:text-blue-700">
                   Terms
-                </a>
-                <a href="/#about" className="text-xs text-slate-500 hover:text-blue-700">
+                </Link>
+                <Link href="/#about" className="text-xs text-slate-500 hover:text-blue-700">
                   Help
-                </a>
+                </Link>
               </div>
             </div>
           </div>
