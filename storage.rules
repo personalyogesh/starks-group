@@ -5,8 +5,21 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function isAdminUserDoc(userId) {
+      return exists(/databases/(default)/documents/users/$(userId))
+        && get(/databases/(default)/documents/users/$(userId)).data.role == "admin"
+        && (
+          get(/databases/(default)/documents/users/$(userId)).data.status == "approved"
+          || get(/databases/(default)/documents/users/$(userId)).data.status == "active"
+        )
+        && get(/databases/(default)/documents/users/$(userId)).data.suspended != true;
+    }
+
     function isAdmin() {
-      return signedIn() && request.auth.token.admin == true;
+      return signedIn() && (
+        request.auth.token.admin == true
+        || isAdminUserDoc(request.auth.uid)
+      );
     }
 
     function isImageUnder5Mb() {
@@ -48,6 +61,11 @@ service firebase.storage {
     }
 
     match /event-images/{uid}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImageUnder5Mb();
+    }
+
+    match /fixture-images/{allPaths=**} {
       allow read: if true;
       allow write: if isAdmin() && isImageUnder5Mb();
     }

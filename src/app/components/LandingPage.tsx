@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Award, Calendar, Gift, MapPin, MessageCircle, PhoneCall, Sparkles, Users } from "lucide-react";
+import { Calendar, Gift, ImageIcon, Instagram, MapPin, MessageCircle, PhoneCall, Sparkles, Users } from "lucide-react";
 import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 
+import FixtureCard from "@/app/components/FixtureCard";
 import { listenCollection, BirthdayWishDoc, EventDoc, LinkDoc, PostDoc, setRsvp } from "@/lib/firestore";
 import { useAuth } from "@/lib/AuthContext";
 import { db, isFirebaseConfigured } from "@/lib/firebaseClient";
@@ -14,7 +17,10 @@ import Button from "@/components/ui/Button";
 import PostCard from "@/components/feed/PostCard";
 import LandingCarousel from "@/components/landing/LandingCarousel";
 import { AuthModal, AuthModalTrigger } from "@/app/components/AuthModal";
-import { getAllPartners, Partner } from "@/lib/firebase/partnersService";
+import { Badge } from "@/app/components/ui/badge";
+import { subscribeToPublicFixtures, type Fixture } from "@/lib/firebase/fixturesService";
+import { isFixtureUpcoming } from "@/lib/fixtures";
+import type { KeyMomentYearGroup } from "@/lib/localKeyMoments";
 
 function QrWelcomeBanner() {
   const searchParams = useSearchParams();
@@ -46,7 +52,13 @@ function getTodayDisplayDateKey() {
   return `${partValue("year")}-${partValue("month")}-${partValue("day")}`;
 }
 
-export default function LandingPage() {
+type LandingPageProps = {
+  keyMomentYears?: KeyMomentYearGroup[];
+};
+
+export default function LandingPage({
+  keyMomentYears = [],
+}: LandingPageProps) {
   const { currentUser } = useAuth();
   const user = currentUser?.authUser ?? null;
   const userDoc = currentUser?.userDoc ?? null;
@@ -56,12 +68,13 @@ export default function LandingPage() {
   const [authTrigger, setAuthTrigger] = useState<AuthModalTrigger>("general");
 
   const [events, setEvents] = useState<Array<{ id: string; data: EventDoc }>>([]);
+  const [fixtures, setFixtures] = useState<Fixture[]>([]);
   const [links, setLinks] = useState<Array<{ id: string; data: LinkDoc }>>([]);
   const [posts, setPosts] = useState<Array<{ id: string; data: PostDoc }>>([]);
   const [birthdayWishes, setBirthdayWishes] = useState<Array<{ id: string; data: BirthdayWishDoc }>>([]);
-  const [featuredPartners, setFeaturedPartners] = useState<Partner[]>([]);
   const todayDisplayDateKey = getTodayDisplayDateKey();
   const currentWishYear = Number(todayDisplayDateKey.slice(0, 4));
+  const [nowTimestamp] = useState(() => Date.now());
 
   const todayBirthdayWishes = birthdayWishes
     .filter(({ data }) => data.wishType === "birthday" && data.displayDateKey === todayDisplayDateKey)
@@ -70,6 +83,9 @@ export default function LandingPage() {
   const belatedBirthdayWishes = birthdayWishes
     .filter(({ data }) => data.wishType === "belated" && data.wishYear === currentWishYear)
     .slice(0, 6);
+
+  const latestKeyMomentYear = keyMomentYears[0] ?? null;
+  const latestKeyMomentImages = latestKeyMomentYear?.images.slice(0, 4) ?? [];
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -80,19 +96,21 @@ export default function LandingPage() {
     });
   }, []);
 
-  const partnerTiles: Array<{ id: string; name: string; logoUrl?: string }> =
-    featuredPartners.length > 0
-      ? featuredPartners.map((p) => ({ id: p.id, name: p.name, logoUrl: p.logoUrl }))
-      : [
-          {
-            id: "fallback-hashtag-india",
-            name: "Hashtag India",
-            logoUrl: "/partners/hashtag-india-optimized.png",
-          },
-        ];
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     return listenCollection<LinkDoc>("links", setLinks, { limit: 10 });
+  }, []);
+  useEffect(() => {
+    return subscribeToPublicFixtures(
+      (incoming) => {
+        setFixtures(incoming.filter((fixture) => fixture.seasonYear === 2026));
+      },
+      {
+        onError: () => {
+          setFixtures([]);
+        },
+      },
+    );
   }, []);
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -117,45 +135,41 @@ export default function LandingPage() {
     });
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!isFirebaseConfigured) return;
-      try {
-        const rows = await getAllPartners();
-        const featured = rows.filter((p) => p.featured);
-        const selected = (featured.length > 0 ? featured : rows).slice(0, 6);
-        if (!cancelled) setFeaturedPartners(selected);
-      } catch {
-        // ignore (partners are optional content)
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const upcomingEvents = useMemo(() => {
     const toEventDate = (event: EventDoc): Date | null => {
-      const raw = (event as any)?.dateTime ?? (event as any)?.date;
+      const eventWithOptionalDate = event as EventDoc & { date?: unknown; dateTime?: unknown };
+      const raw = eventWithOptionalDate.dateTime ?? eventWithOptionalDate.date;
       if (!raw) return null;
-      if (typeof raw?.toDate === "function") return raw.toDate();
+      const rawObject = raw as { toDate?: unknown };
+      if (typeof raw === "object" && raw !== null && typeof rawObject.toDate === "function") {
+        return rawObject.toDate();
+      }
       const d = new Date(raw);
       return Number.isNaN(d.getTime()) ? null : d;
     };
 
-    const now = Date.now();
     return events
       .filter(({ data }) => {
         const d = toEventDate(data);
-        return Boolean(d && d.getTime() >= now);
+        return Boolean(d && d.getTime() >= nowTimestamp);
       })
       .sort((a, b) => {
         const ad = toEventDate(a.data)?.getTime() ?? Number.MAX_SAFE_INTEGER;
         const bd = toEventDate(b.data)?.getTime() ?? Number.MAX_SAFE_INTEGER;
         return ad - bd;
       });
-  }, [events]);
+  }, [events, nowTimestamp]);
+
+  const featuredFixture = useMemo(() => {
+    const liveFixture = fixtures.find((fixture) => fixture.status === "live");
+    if (liveFixture) return liveFixture;
+    return fixtures.find(isFixtureUpcoming) ?? fixtures[0] ?? null;
+  }, [fixtures]);
+
+  const secondaryFixtures = useMemo(
+    () => fixtures.filter((fixture) => fixture.id !== featuredFixture?.id).slice(0, 3),
+    [featuredFixture?.id, fixtures],
+  );
 
   return (
     <div className="space-y-10">
@@ -273,6 +287,196 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {featuredFixture && (
+        <section className="px-4 py-12">
+          <div className="max-w-6xl mx-auto space-y-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="space-y-3">
+                <div className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
+                  Starks 2026 Matchday
+                </div>
+                <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-950">
+                  Upcoming Fixtures and Results
+                </h2>
+                <p className="max-w-3xl text-lg text-slate-600">
+                  Follow Mega Bash 2026 and Mega Smash 2026 with live score links, results, MVP updates, and recap links.
+                </p>
+              </div>
+              <Link href="/fixtures">
+                <Button variant="dark" className="rounded-2xl px-6 py-3">
+                  View Full Fixtures
+                </Button>
+              </Link>
+            </div>
+
+            <div className="grid gap-5 xl:grid-cols-[1.35fr,0.95fr]">
+              <FixtureCard fixture={featuredFixture} variant="featured" />
+
+              <div className="space-y-4">
+                <Card className="rounded-[28px] border-emerald-100 bg-[linear-gradient(180deg,#052e16_0%,#14532d_100%)] text-white shadow-none">
+                  <CardBody>
+                    <div className="space-y-3 p-1">
+                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-100/70">At a glance</p>
+                      <h3 className="text-2xl font-black">Two seasons, one match center</h3>
+                      <p className="text-sm text-emerald-50/80">
+                        Admins can keep every Starks fixture current with live score links, results, MVP, and the latest YouTube recap.
+                      </p>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <Link href="/fixtures">
+                          <Button variant="dark" className="bg-white text-slate-950 hover:bg-white/90">
+                            View All Fixtures
+                          </Button>
+                        </Link>
+                        <a href="https://www.youtube.com/@starkscricket" target="_blank" rel="noreferrer">
+                          <Button variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10">
+                            Club Videos
+                          </Button>
+                        </a>
+                      </div>
+                    </div>
+                  </CardBody>
+                </Card>
+
+                <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-1">
+                  {secondaryFixtures.map((fixture) => {
+                    const date = fixture.date?.toDate?.() ?? null;
+                    return (
+                      <Link
+                        key={fixture.id}
+                        href="/fixtures"
+                        className="rounded-[24px] border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                              {fixture.seasonLabel}
+                            </p>
+                            <h3 className="mt-2 text-lg font-black text-slate-900">
+                              Starks vs {fixture.opponent}
+                            </h3>
+                          </div>
+                          <Badge className={fixture.status === "live" ? "bg-rose-500 text-white" : "bg-slate-100 text-slate-700"}>
+                            {fixture.status === "live" ? "Live" : fixture.status === "completed" ? "Done" : "Next"}
+                          </Badge>
+                        </div>
+                        <div className="mt-4 space-y-1 text-sm text-slate-600">
+                          <p>{date ? date.toLocaleDateString() : "Date TBD"}</p>
+                          <p>{fixture.venue || "Venue TBD"}</p>
+                          <p>{fixture.location || "Location TBD"}</p>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {latestKeyMomentYear && latestKeyMomentImages.length > 0 && (
+        <section className="bg-white py-12 md:py-16">
+          <div className="max-w-6xl mx-auto px-4 space-y-8">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="space-y-3">
+                <div className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
+                  Key Moments {latestKeyMomentYear.year}
+                </div>
+                <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-950">
+                  Latest highlights from the club
+                </h2>
+                <p className="max-w-3xl text-lg text-slate-600">
+                  A curated look at Starks Cricket&apos;s newest memories while the full photo story lives on Instagram.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <a href="/gallery">
+                  <Button variant="dark" className="rounded-2xl px-6 py-3">
+                    <ImageIcon className="size-4" />
+                    View All Key Moments
+                  </Button>
+                </a>
+                <a
+                  href="https://www.instagram.com/starkscricketclub?igsh=MmU3emNlMmpjNHR0&utm_source=qr"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button variant="outline" className="rounded-2xl px-6 py-3">
+                    <Instagram className="size-4" />
+                    Full Photo Feed
+                  </Button>
+                </a>
+              </div>
+            </div>
+
+            <div className="grid gap-5 lg:grid-cols-[1.2fr,0.8fr]">
+              <a
+                href="/gallery"
+                className="group relative overflow-hidden rounded-[28px] bg-slate-900 text-left shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl"
+              >
+                <div className="relative aspect-[16/11] w-full">
+                  <Image
+                    src={latestKeyMomentImages[0].src}
+                    alt={latestKeyMomentImages[0].title}
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 60vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/75">
+                    Latest Year · {latestKeyMomentYear.year}
+                  </p>
+                  <h3 className="mt-2 text-2xl font-black">{latestKeyMomentImages[0].title}</h3>
+                  <p className="mt-2 max-w-xl text-sm text-white/80">{latestKeyMomentImages[0].caption}</p>
+                </div>
+              </a>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+                {latestKeyMomentImages.slice(1).map((image) => (
+                  <a
+                    key={image.id}
+                    href="/gallery"
+                    className="group flex overflow-hidden rounded-[24px] border border-slate-200 bg-white text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <div className="relative aspect-square w-28 shrink-0 sm:w-32">
+                      <Image
+                        src={image.src}
+                        alt={image.title}
+                        fill
+                        sizes="160px"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="flex flex-1 flex-col justify-center p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">
+                        {latestKeyMomentYear.year}
+                      </p>
+                      <h3 className="mt-2 line-clamp-2 text-lg font-bold text-slate-900">{image.title}</h3>
+                      <p className="mt-1 line-clamp-2 text-sm text-slate-600">{image.caption}</p>
+                    </div>
+                  </a>
+                ))}
+
+                <Card className="rounded-[24px] border-blue-100 bg-blue-50 shadow-none">
+                  <CardBody>
+                    <div className="space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">Keep It Premium</p>
+                      <h3 className="text-xl font-black text-slate-900">Small on-site archive, full social gallery</h3>
+                      <p className="text-sm text-slate-600">
+                        Keep milestone moments on the website and drive the broader match-day gallery to Instagram.
+                      </p>
+                    </div>
+                  </CardBody>
+                </Card>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {(todayBirthdayWishes.length > 0 || belatedBirthdayWishes.length > 0 || isAdmin) && (
         <section>
@@ -459,11 +663,12 @@ export default function LandingPage() {
                     className="group shrink-0 rounded-2xl border border-slate-200 bg-white p-2.5 md:p-3 shadow-sm hover:shadow-md transition"
                     title="Learn more about Hashtag India"
                   >
-                    <img
+                    <Image
                       src="/partners/hashtag-india-optimized.png"
                       alt="Hashtag India"
-                      className="h-12 w-28 sm:h-14 sm:w-36 object-contain group-hover:scale-[1.03] transition"
-                      loading="lazy"
+                      width={144}
+                      height={56}
+                      className="h-12 w-28 object-contain group-hover:scale-[1.03] transition sm:h-14 sm:w-36"
                     />
                   </a>
                   <div className="min-w-0">

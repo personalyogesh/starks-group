@@ -40,8 +40,11 @@ export default function Footer() {
                 <Link className="hover:text-white transition" href="/#about">
                   About Us
                 </Link>
-                <Link className="hover:text-white transition" href="/#programs">
-                  Programs
+                <Link className="hover:text-white transition" href="/fixtures">
+                  Fixtures
+                </Link>
+                <Link className="hover:text-white transition" href="/gallery">
+                  Key Moments
                 </Link>
                 <Link className="hover:text-white transition" href="/partners">
                   Partners
@@ -73,6 +76,12 @@ export default function Footer() {
                 </a>
                 <Link className="hover:text-white transition" href="/events">
                   Events
+                </Link>
+                <Link className="hover:text-white transition" href="/fixtures">
+                  View 2026 Fixtures
+                </Link>
+                <Link className="hover:text-white transition" href="/gallery">
+                  Follow Key Moments
                 </Link>
               </div>
             </div>
@@ -189,7 +198,7 @@ export default function Footer() {
                 </a>
                 <a
                   className="hover:text-white transition"
-                  href="https://instagram.com"
+                  href="https://www.instagram.com/starkscricketclub?igsh=MmU3emNlMmpjNHR0&utm_source=qr"
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Instagram"
@@ -198,12 +207,12 @@ export default function Footer() {
                 </a>
                 <a
                   className="hover:text-white transition"
-                  href="https://facebook.com"
+                  href="https://x.com/clubstarks?s=21&t=BAMIGs5adc1xl19nJGtDEw"
                   target="_blank"
                   rel="noreferrer"
-                  aria-label="Facebook"
+                  aria-label="X"
                 >
-                  f
+                  𝕏
                 </a>
               </div>
               <Link className="hover:text-white transition" href="/privacy">

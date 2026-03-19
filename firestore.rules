@@ -114,6 +114,12 @@ service cloud.firestore {
       }
     }
 
+    // --- Fixtures (public read when published; admin manages) ---
+    match /fixtures/{fixtureId} {
+      allow read: if resource.data.isPublic == true || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
     // --- Posts (public read w/ privacy; approved write) ---
     match /posts/{postId} {
       allow read: if true;
