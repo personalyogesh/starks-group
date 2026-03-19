@@ -8,7 +8,7 @@ import { CalendarDays, Pencil, Radio, RefreshCw, ShieldCheck, Trash2, Trophy, Up
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { Breadcrumbs } from "@/app/components/Breadcrumbs";
 import { Badge } from "@/app/components/ui/badge";
-import { FIXTURE_SEASON_OPTIONS } from "@/data/starksFixtures2026";
+import { FIXTURE_SEASON_OPTIONS, type FixtureSeasonKey } from "@/data/starksFixtures2026";
 import { useToast } from "@/components/ui/ToastProvider";
 import Button from "@/components/ui/Button";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
@@ -24,7 +24,6 @@ import {
   updateFixture,
   updateFixtureWithOptionalImage,
   type Fixture,
-  type FixtureSeasonKey,
   type FixtureStatus,
   type FixtureVenueType,
 } from "@/lib/firebase/fixturesService";

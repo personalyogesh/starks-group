@@ -140,8 +140,9 @@ export default function LandingPage({
       const eventWithOptionalDate = event as EventDoc & { date?: unknown; dateTime?: unknown };
       const raw = eventWithOptionalDate.dateTime ?? eventWithOptionalDate.date;
       if (!raw) return null;
-      if (typeof (raw as { toDate?: unknown })?.toDate === "function") {
-        return (raw as { toDate: () => Date }).toDate();
+      const rawObject = raw as { toDate?: unknown };
+      if (typeof raw === "object" && raw !== null && typeof rawObject.toDate === "function") {
+        return rawObject.toDate();
       }
       const d = new Date(raw);
       return Number.isNaN(d.getTime()) ? null : d;
