@@ -21,6 +21,7 @@ import { Badge } from "@/app/components/ui/badge";
 import { subscribeToPublicFixtures, type Fixture } from "@/lib/firebase/fixturesService";
 import { isFixtureUpcoming } from "@/lib/fixtures";
 import type { KeyMomentYearGroup } from "@/lib/localKeyMoments";
+import JerseyLaunchSpotlight from "@/app/components/JerseyLaunchSpotlight";
 
 function QrWelcomeBanner() {
   const searchParams = useSearchParams();
@@ -221,6 +222,8 @@ export default function LandingPage({
           <LandingCarousel />
         </div>
       </section>
+
+      <JerseyLaunchSpotlight />
 
       {/* About */}
       <section id="about" className="px-4 py-12">
