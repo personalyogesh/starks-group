@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ExternalLink, Heart, Instagram, MapPin } from "lucide-react";
+import { trackPartnerClick } from "@/lib/analytics/partnerEvents";
 import { getPartners, type Partner } from "@/services/partnerService";
 
 interface PartnersPageProps {
@@ -104,7 +105,20 @@ export function PartnersPage({ navigateTo }: PartnersPageProps) {
                 <div className="bg-gradient-to-br from-orange-50 to-blue-50 p-6 sm:p-8 lg:p-16 flex items-center justify-center">
                   <div className="text-center space-y-4 md:space-y-6">
                     <div className="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-lg inline-block">
-                      <a href={featuredPartner.instagramUrl} target="_blank" rel="noopener noreferrer" className="block">
+                      <a
+                        href={featuredPartner.instagramUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block"
+                        onClick={() =>
+                          trackPartnerClick({
+                            section: "partners_page",
+                            linkType: "featured_logo_instagram",
+                            partnerName: featuredPartner.name,
+                            destination: featuredPartner.instagramUrl,
+                          })
+                        }
+                      >
                         <PartnerLogo
                           src={featuredPartner.logoUrl}
                           alt={featuredPartner.name}
@@ -140,6 +154,14 @@ export function PartnersPage({ navigateTo }: PartnersPageProps) {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-1 flex items-center justify-center gap-3 px-5 md:px-6 py-3.5 md:py-4 rounded-xl font-bold text-base md:text-lg min-h-12 bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 text-white hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 group"
+                      onClick={() =>
+                        trackPartnerClick({
+                          section: "partners_page",
+                          linkType: "featured_instagram",
+                          partnerName: featuredPartner.name,
+                          destination: featuredPartner.instagramUrl,
+                        })
+                      }
                     >
                       <Instagram className="w-6 h-6 group-hover:rotate-12 transition-transform" />
                       <span>{featuredPartner.instagramHandle}</span>
@@ -152,6 +174,14 @@ export function PartnersPage({ navigateTo }: PartnersPageProps) {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center justify-center gap-2 px-5 md:px-6 py-3.5 md:py-4 rounded-xl font-semibold min-h-12 bg-neutral-900 text-white hover:bg-neutral-800 hover:shadow-lg hover:scale-[1.02] transition-all duration-300"
+                        onClick={() =>
+                          trackPartnerClick({
+                            section: "partners_page",
+                            linkType: "featured_website",
+                            partnerName: featuredPartner.name,
+                            destination: featuredPartner.websiteUrl,
+                          })
+                        }
                       >
                         Visit Website
                         <ExternalLink className="w-5 h-5" />
@@ -205,6 +235,14 @@ export function PartnersPage({ navigateTo }: PartnersPageProps) {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg min-h-11 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-semibold hover:shadow-lg transition-all"
+                        onClick={() =>
+                          trackPartnerClick({
+                            section: "partners_page",
+                            linkType: "supporting_instagram",
+                            partnerName: partner.name,
+                            destination: partner.instagramUrl,
+                          })
+                        }
                       >
                         <Instagram className="w-4 h-4" />
                         Instagram
@@ -217,6 +255,14 @@ export function PartnersPage({ navigateTo }: PartnersPageProps) {
                           rel="noopener noreferrer"
                           className="px-4 py-2.5 rounded-lg min-h-11 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors"
                           title="Visit Website"
+                          onClick={() =>
+                            trackPartnerClick({
+                              section: "partners_page",
+                              linkType: "supporting_website",
+                              partnerName: partner.name,
+                              destination: partner.websiteUrl,
+                            })
+                          }
                         >
                           <ExternalLink className="w-4 h-4" />
                         </a>
@@ -235,7 +281,13 @@ export function PartnersPage({ navigateTo }: PartnersPageProps) {
             Join us in supporting the cricket community. Partnership opportunities available for the 2027 season.
           </p>
           <button
-            onClick={() => navigateTo("contact")}
+            onClick={() => {
+              trackPartnerClick({
+                section: "partners_page",
+                linkType: "contact_partnership_cta",
+              });
+              navigateTo("contact");
+            }}
             className="w-full sm:w-auto px-6 sm:px-8 py-3.5 md:py-4 rounded-xl font-bold text-base md:text-lg min-h-12 bg-white text-primary-600 hover:bg-neutral-100 hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
           >
             Contact Us About Partnerships

@@ -14,6 +14,7 @@ import Button from "@/components/ui/Button";
 import Card, { CardBody, CardHeader } from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
+import { describeFirebasePermissionDenied } from "@/lib/firebase/firebasePermissionMessage";
 import {
   buildFixtureMatchup,
   createFixtureWithOptionalImage,
@@ -111,7 +112,7 @@ export default function AdminFixturesPage() {
       toast({
         kind: "error",
         title: "Failed to load fixtures",
-        description: error instanceof Error ? error.message : "Please try again.",
+        description: describeFirebasePermissionDenied(error),
       });
     } finally {
       setLoading(false);
@@ -221,7 +222,7 @@ export default function AdminFixturesPage() {
       toast({
         kind: "error",
         title: "Failed to load templates",
-        description: error instanceof Error ? error.message : "Please try again.",
+        description: describeFirebasePermissionDenied(error),
       });
     } finally {
       setSeeding(false);
@@ -280,7 +281,7 @@ export default function AdminFixturesPage() {
       toast({
         kind: "error",
         title: "Failed to save fixture",
-        description: error instanceof Error ? error.message : "Please try again.",
+        description: describeFirebasePermissionDenied(error),
       });
     } finally {
       setSaving(false);
@@ -296,7 +297,7 @@ export default function AdminFixturesPage() {
       toast({
         kind: "error",
         title: "Failed to delete fixture",
-        description: error instanceof Error ? error.message : "Please try again.",
+        description: describeFirebasePermissionDenied(error),
       });
     }
   }
@@ -309,7 +310,7 @@ export default function AdminFixturesPage() {
       toast({
         kind: "error",
         title: "Failed to update fixture",
-        description: error instanceof Error ? error.message : "Please try again.",
+        description: describeFirebasePermissionDenied(error),
       });
     }
   }
