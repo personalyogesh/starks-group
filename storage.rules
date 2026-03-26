@@ -5,13 +5,11 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    // Align with Firestore `isAdmin()`: role admin or auth custom claim; do not require
+    // approved/active here (Firestore fixture writes don’t either). Still block suspended.
     function isAdminUserDoc(userId) {
       return exists(/databases/(default)/documents/users/$(userId))
         && get(/databases/(default)/documents/users/$(userId)).data.role == "admin"
-        && (
-          get(/databases/(default)/documents/users/$(userId)).data.status == "approved"
-          || get(/databases/(default)/documents/users/$(userId)).data.status == "active"
-        )
         && get(/databases/(default)/documents/users/$(userId)).data.suspended != true;
     }
 

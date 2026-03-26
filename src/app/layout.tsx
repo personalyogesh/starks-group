@@ -1,5 +1,8 @@
+import { GoogleAnalytics } from "@next/third-parties/google";
+
 import "./globals.css";
 import { ThemeProvider } from "@/app/components/ThemeProvider";
+import { GA_MEASUREMENT_ID } from "@/lib/analytics/gaMeasurementId";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -25,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen">
         <ThemeProvider>{children}</ThemeProvider>
+        <GoogleAnalytics gaId={GA_MEASUREMENT_ID} />
       </body>
     </html>
   );

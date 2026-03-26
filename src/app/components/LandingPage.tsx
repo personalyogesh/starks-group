@@ -22,6 +22,9 @@ import { subscribeToPublicFixtures, type Fixture } from "@/lib/firebase/fixtures
 import { isFixtureUpcoming } from "@/lib/fixtures";
 import type { KeyMomentYearGroup } from "@/lib/localKeyMoments";
 import JerseyLaunchSpotlight from "@/app/components/JerseyLaunchSpotlight";
+import { trackPartnerClick } from "@/lib/analytics/partnerEvents";
+
+const HOMEPAGE_PARTNER_SPOTLIGHT = "Hashtag India";
 
 function QrWelcomeBanner() {
   const searchParams = useSearchParams();
@@ -665,6 +668,14 @@ export default function LandingPage({
                     href="/partners"
                     className="group shrink-0 rounded-2xl border border-slate-200 bg-white p-2.5 md:p-3 shadow-sm hover:shadow-md transition"
                     title="Learn more about Hashtag India"
+                    onClick={() =>
+                      trackPartnerClick({
+                        section: "homepage_our_partners",
+                        linkType: "spotlight_logo",
+                        partnerName: HOMEPAGE_PARTNER_SPOTLIGHT,
+                        destination: "/partners",
+                      })
+                    }
                   >
                     <Image
                       src="/partners/hashtag-india-optimized.png"
@@ -699,6 +710,14 @@ export default function LandingPage({
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 text-white px-4 py-2.5 text-sm font-bold hover:opacity-95 transition min-h-11"
                     title="Visit Instagram"
+                    onClick={() =>
+                      trackPartnerClick({
+                        section: "homepage_our_partners",
+                        linkType: "instagram",
+                        partnerName: HOMEPAGE_PARTNER_SPOTLIGHT,
+                        destination: "https://www.instagram.com/hashtagindia_cary_nc",
+                      })
+                    }
                   >
                     Instagram
                   </a>
@@ -706,6 +725,14 @@ export default function LandingPage({
                     href="/partners"
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 transition min-h-11"
                     title="Learn more"
+                    onClick={() =>
+                      trackPartnerClick({
+                        section: "homepage_our_partners",
+                        linkType: "learn_more",
+                        partnerName: HOMEPAGE_PARTNER_SPOTLIGHT,
+                        destination: "/partners",
+                      })
+                    }
                   >
                     Learn More
                   </a>
@@ -713,6 +740,14 @@ export default function LandingPage({
                     href="tel:+19196501140"
                     className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-950 text-white px-4 py-2.5 text-sm font-bold hover:bg-slate-800 transition min-h-11"
                     title="Call Hashtag India"
+                    onClick={() =>
+                      trackPartnerClick({
+                        section: "homepage_our_partners",
+                        linkType: "phone",
+                        partnerName: HOMEPAGE_PARTNER_SPOTLIGHT,
+                        destination: "tel:+19196501140",
+                      })
+                    }
                   >
                     <PhoneCall className="size-4" />
                     (919) 650-1140
@@ -723,7 +758,16 @@ export default function LandingPage({
           </div>
 
           <div className="text-center">
-            <a href="/partners">
+            <a
+              href="/partners"
+              onClick={() =>
+                trackPartnerClick({
+                  section: "homepage_our_partners",
+                  linkType: "view_all",
+                  destination: "/partners",
+                })
+              }
+            >
               <Button variant="outline">View All Partners</Button>
             </a>
           </div>

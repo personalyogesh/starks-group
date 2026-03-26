@@ -10,10 +10,15 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Accept either custom claim (preferred) or Firestore role (bootstrap / back-compat).
+      // Custom claim (preferred) or Firestore role == admin; block suspended accounts.
+      // Use exists() so missing user docs don’t rely on empty get().data edge cases.
       return signedIn() && (
         isAdminClaim()
-        || me().role == "admin"
+        || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.suspended != true
+        )
       );
     }
 
