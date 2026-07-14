@@ -1,13 +1,25 @@
 "use client";
 
-import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Calendar, Gift, ImageIcon, Instagram, MapPin, MessageCircle, PhoneCall, Sparkles, Users } from "lucide-react";
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Gift,
+  ImageIcon,
+  Instagram,
+  MapPin,
+  MessageCircle,
+  PhoneCall,
+  PlayCircle,
+  Sparkles,
+  Star,
+  Users,
+} from "lucide-react";
 import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 
-import FixtureCard from "@/app/components/FixtureCard";
 import { listenCollection, BirthdayWishDoc, EventDoc, LinkDoc, PostDoc, setRsvp } from "@/lib/firestore";
 import { useAuth } from "@/lib/AuthContext";
 import { db, isFirebaseConfigured } from "@/lib/firebaseClient";
@@ -17,14 +29,56 @@ import Button from "@/components/ui/Button";
 import PostCard from "@/components/feed/PostCard";
 import LandingCarousel from "@/components/landing/LandingCarousel";
 import { AuthModal, AuthModalTrigger } from "@/app/components/AuthModal";
-import { Badge } from "@/app/components/ui/badge";
-import { subscribeToPublicFixtures, type Fixture } from "@/lib/firebase/fixturesService";
-import { isFixtureUpcoming } from "@/lib/fixtures";
 import type { KeyMomentYearGroup } from "@/lib/localKeyMoments";
-import JerseyLaunchSpotlight from "@/app/components/JerseyLaunchSpotlight";
 import { trackPartnerClick } from "@/lib/analytics/partnerEvents";
+import { fixtureDate } from "@/lib/fixtures";
+import { subscribeToPublicFixtures, type Fixture, type FixtureResultOutcome } from "@/lib/firebase/fixturesService";
 
 const HOMEPAGE_PARTNER_SPOTLIGHT = "Hashtag India";
+const DEFAULT_MEGASMASH_YOUTUBE_URL = "https://www.youtube.com/@starkscricket";
+const CURRENT_MEMORIES_YEAR = "2026";
+
+function formatFixtureDateLabel(fixture: Fixture): string {
+  const date = fixtureDate(fixture.date);
+  if (!date) return "Date & time TBD";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+const MEGA_SMASH_RESULT_STYLES: Record<
+  FixtureResultOutcome,
+  {
+    chipClassName: string;
+    cardClassName: string;
+    label: string;
+  }
+> = {
+  win: {
+    chipClassName: "border-emerald-300/80 bg-emerald-200/70 text-emerald-900",
+    cardClassName: "border-emerald-200/80 bg-emerald-100/35",
+    label: "Win",
+  },
+  loss: {
+    chipClassName: "border-rose-300/80 bg-rose-200/70 text-rose-900",
+    cardClassName: "border-rose-200/80 bg-rose-100/35",
+    label: "Loss",
+  },
+  tie: {
+    chipClassName: "border-amber-300/80 bg-amber-200/70 text-amber-900",
+    cardClassName: "border-amber-200/80 bg-amber-100/35",
+    label: "Tie",
+  },
+  unknown: {
+    chipClassName: "border-blue-300/80 bg-blue-200/70 text-blue-900",
+    cardClassName: "border-blue-200/80 bg-blue-100/35",
+    label: "Upcoming",
+  },
+};
 
 function QrWelcomeBanner() {
   const searchParams = useSearchParams();
@@ -71,8 +125,8 @@ export default function LandingPage({
   const [authGateOpen, setAuthGateOpen] = useState(false);
   const [authTrigger, setAuthTrigger] = useState<AuthModalTrigger>("general");
 
-  const [events, setEvents] = useState<Array<{ id: string; data: EventDoc }>>([]);
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const [events, setEvents] = useState<Array<{ id: string; data: EventDoc }>>([]);
   const [links, setLinks] = useState<Array<{ id: string; data: LinkDoc }>>([]);
   const [posts, setPosts] = useState<Array<{ id: string; data: PostDoc }>>([]);
   const [birthdayWishes, setBirthdayWishes] = useState<Array<{ id: string; data: BirthdayWishDoc }>>([]);
@@ -88,8 +142,39 @@ export default function LandingPage({
     .filter(({ data }) => data.wishType === "belated" && data.wishYear === currentWishYear)
     .slice(0, 6);
 
-  const latestKeyMomentYear = keyMomentYears[0] ?? null;
-  const latestKeyMomentImages = latestKeyMomentYear?.images.slice(0, 4) ?? [];
+  const memoryYears = useMemo(() => {
+    const years = new Set(keyMomentYears.map((group) => group.year));
+    years.add(CURRENT_MEMORIES_YEAR);
+    return [...years].sort((a, b) => Number(b) - Number(a));
+  }, [keyMomentYears]);
+  const [selectedMemoriesYear, setSelectedMemoriesYear] = useState<string>(() =>
+    keyMomentYears.find((group) => Number(group.year) === 2026)?.year ?? CURRENT_MEMORIES_YEAR,
+  );
+  const selectedMemoriesGroup = useMemo(
+    () => keyMomentYears.find((group) => group.year === selectedMemoriesYear) ?? null,
+    [keyMomentYears, selectedMemoriesYear],
+  );
+  const selectedMemoriesImages = selectedMemoriesGroup?.images.slice(0, 4) ?? [];
+  const [memoriesCarouselIndex, setMemoriesCarouselIndex] = useState(0);
+
+  useEffect(() => {
+    const stillExists = memoryYears.includes(selectedMemoriesYear);
+    if (stillExists) return;
+    const fallbackYear = memoryYears.find((year) => year === CURRENT_MEMORIES_YEAR) ?? memoryYears[0] ?? "";
+    setSelectedMemoriesYear(fallbackYear);
+  }, [memoryYears, selectedMemoriesYear]);
+
+  useEffect(() => {
+    setMemoriesCarouselIndex(0);
+  }, [selectedMemoriesYear]);
+
+  useEffect(() => {
+    if (selectedMemoriesImages.length <= 1) return;
+    const intervalId = window.setInterval(() => {
+      setMemoriesCarouselIndex((current) => (current + 1) % selectedMemoriesImages.length);
+    }, 4500);
+    return () => window.clearInterval(intervalId);
+  }, [selectedMemoriesImages.length, selectedMemoriesYear]);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -107,7 +192,7 @@ export default function LandingPage({
   useEffect(() => {
     return subscribeToPublicFixtures(
       (incoming) => {
-        setFixtures(incoming.filter((fixture) => fixture.seasonYear === 2026));
+        setFixtures(incoming.filter((fixture) => fixture.seasonKey === "mega-smash-2026" && fixture.seasonYear === 2026));
       },
       {
         onError: () => {
@@ -164,16 +249,21 @@ export default function LandingPage({
       });
   }, [events, nowTimestamp]);
 
-  const featuredFixture = useMemo(() => {
-    const liveFixture = fixtures.find((fixture) => fixture.status === "live");
-    if (liveFixture) return liveFixture;
-    return fixtures.find(isFixtureUpcoming) ?? fixtures[0] ?? null;
-  }, [fixtures]);
-
-  const secondaryFixtures = useMemo(
-    () => fixtures.filter((fixture) => fixture.id !== featuredFixture?.id).slice(0, 3),
-    [featuredFixture?.id, fixtures],
+  const megaSmashFixtures = useMemo(
+    () =>
+      [...fixtures]
+        .sort((a, b) => {
+          const aTime = fixtureDate(a.date)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          const bTime = fixtureDate(b.date)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          if (aTime !== bTime) return aTime - bTime;
+          return a.gameNumber - b.gameNumber;
+        })
+        .slice(0, 12),
+    [fixtures],
   );
+
+  const megaSmashYoutubeUrl =
+    megaSmashFixtures.find((fixture) => fixture.youtubeUrl)?.youtubeUrl || DEFAULT_MEGASMASH_YOUTUBE_URL;
 
   return (
     <div className="space-y-10">
@@ -225,8 +315,6 @@ export default function LandingPage({
           <LandingCarousel />
         </div>
       </section>
-
-      <JerseyLaunchSpotlight />
 
       {/* About */}
       <section id="about" className="px-4 py-12">
@@ -294,107 +382,167 @@ export default function LandingPage({
         </div>
       </section>
 
-      {featuredFixture && (
-        <section className="px-4 py-12">
-          <div className="max-w-6xl mx-auto space-y-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div className="space-y-3">
-                <div className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
-                  Starks 2026 Matchday
-                </div>
-                <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-950">
-                  Upcoming Fixtures and Results
-                </h2>
-                <p className="max-w-3xl text-lg text-slate-600">
-                  Follow Mega Bash 2026 and Mega Smash 2026 with live score links, results, MVP updates, and recap links.
-                </p>
+      <section className="px-4 py-12">
+        <div className="max-w-6xl mx-auto space-y-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-3">
+              <div className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">
+                MegaBash-2026 Completed
               </div>
-              <Link href="/fixtures">
-                <Button variant="dark" className="rounded-2xl px-6 py-3">
-                  View Full Fixtures
-                </Button>
-              </Link>
+              <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-950">
+                MegaSmash-2026 · 12 games schedule released
+              </h2>
+              <p className="max-w-3xl text-lg text-slate-600">
+                Mega Bash is done. Mega Smash is now live with all 12 fixtures listed below, each card ready for YouTube recap
+                links, MVP photo updates, and win/loss/tie tracking.
+              </p>
             </div>
+            <a href={megaSmashYoutubeUrl} target="_blank" rel="noreferrer">
+              <Button variant="dark" className="rounded-2xl px-6 py-3">
+                <PlayCircle className="size-4" />
+                Watch on YouTube
+              </Button>
+            </a>
+          </div>
 
-            <div className="grid gap-5 xl:grid-cols-[1.35fr,0.95fr]">
-              <FixtureCard fixture={featuredFixture} variant="featured" />
+          <Card className="rounded-[28px] border-blue-200 bg-gradient-to-r from-blue-50 via-white to-indigo-50 shadow-none">
+            <CardBody>
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">Exclusive Season Sponsor</p>
+                  <h3 className="text-2xl font-black text-slate-900">{HOMEPAGE_PARTNER_SPOTLIGHT} · Season 2026</h3>
+                  <p className="text-sm text-slate-600">
+                    Proud exclusive sponsor for MegaSmash-2026. Support our partner while supporting Starks.
+                  </p>
+                </div>
+                <a href="/partners" className="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                  <Image
+                    src="/partners/hashtag-india-optimized.png"
+                    alt="Hashtag India"
+                    width={120}
+                    height={48}
+                    className="h-10 w-auto object-contain"
+                  />
+                  <span className="text-sm font-semibold text-slate-800">View Partner</span>
+                </a>
+              </div>
+            </CardBody>
+          </Card>
 
-              <div className="space-y-4">
-                <Card className="rounded-[28px] border-emerald-100 bg-[linear-gradient(180deg,#052e16_0%,#14532d_100%)] text-white shadow-none">
-                  <CardBody>
-                    <div className="space-y-3 p-1">
-                      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-100/70">At a glance</p>
-                      <h3 className="text-2xl font-black">Two seasons, one match center</h3>
-                      <p className="text-sm text-emerald-50/80">
-                        Admins can keep every Starks fixture current with live score links, results, MVP, and the latest YouTube recap.
+          <div className="relative overflow-hidden rounded-[28px] border border-white/60 bg-gradient-to-br from-slate-100/80 via-white/70 to-blue-100/70 p-2 shadow-[0_18px_50px_rgba(15,23,42,0.1)]">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,rgba(255,255,255,0.85),transparent_45%),radial-gradient(circle_at_85%_15%,rgba(191,219,254,0.55),transparent_35%)]" />
+            <div className="relative overflow-x-auto pb-2 scroll-smooth">
+            <div className="flex min-w-full snap-x snap-mandatory gap-4 px-1">
+              {megaSmashFixtures.map((fixture) => {
+                const resultStyle = MEGA_SMASH_RESULT_STYLES[fixture.resultOutcome];
+                return (
+                  <article
+                    key={fixture.id}
+                    className={`w-[86vw] max-w-[340px] shrink-0 snap-start rounded-[24px] border p-4 shadow-[0_10px_34px_rgba(15,23,42,0.12)] backdrop-blur-xl md:w-[320px] ${resultStyle.cardClassName}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">MegaSmash-2026</p>
+                        <h3 className="mt-1 text-xl font-black text-slate-900">
+                          Game {String(fixture.gameNumber).padStart(2, "0")}
+                        </h3>
+                        <p className="mt-1 text-sm font-semibold text-slate-700">Starks vs {fixture.opponent}</p>
+                      </div>
+                      <span
+                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] ${resultStyle.chipClassName}`}
+                      >
+                        {resultStyle.label}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 space-y-1 text-sm text-slate-700">
+                      <p>{formatFixtureDateLabel(fixture)}</p>
+                      <p>{fixture.venue || "Venue TBD"}</p>
+                      <p>{fixture.location || "Location TBD"}</p>
+                    </div>
+
+                    <div className="mt-4 rounded-2xl border border-white/80 bg-white/60 p-3 backdrop-blur">
+                      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-600">Result</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {fixture.resultText || "Schedule released"}
                       </p>
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <Link href="/fixtures">
-                          <Button variant="dark" className="bg-white text-slate-950 hover:bg-white/90">
-                            View All Fixtures
-                          </Button>
-                        </Link>
-                        <a href="https://www.youtube.com/@starkscricket" target="_blank" rel="noreferrer">
-                          <Button variant="outline" className="border-white/20 bg-white/5 text-white hover:bg-white/10">
-                            Club Videos
-                          </Button>
-                        </a>
+                    </div>
+
+                    <div className="mt-3 rounded-2xl border border-white/80 bg-white/65 p-3 backdrop-blur">
+                      <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.15em] text-slate-600">
+                        <Star className="size-3.5 text-violet-700" />
+                        MVP Update
+                      </p>
+                      <div className="mt-2 flex items-center gap-3">
+                        <div className="relative size-12 overflow-hidden rounded-full border border-slate-200">
+                          {fixture.mvpImageUrl ? (
+                            <Image
+                              src={fixture.mvpImageUrl}
+                              alt={`${fixture.mvp || "Starks player"} MVP`}
+                              fill
+                              sizes="48px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-slate-100 text-xs font-bold text-slate-500">
+                              MVP
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-sm font-semibold text-slate-900">{fixture.mvp || "TBD after match"}</p>
                       </div>
                     </div>
-                  </CardBody>
-                </Card>
 
-                <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-1">
-                  {secondaryFixtures.map((fixture) => {
-                    const date = fixture.date?.toDate?.() ?? null;
-                    return (
-                      <Link
-                        key={fixture.id}
-                        href="/fixtures"
-                        className="rounded-[24px] border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
-                              {fixture.seasonLabel}
-                            </p>
-                            <h3 className="mt-2 text-lg font-black text-slate-900">
-                              Starks vs {fixture.opponent}
-                            </h3>
-                          </div>
-                          <Badge className={fixture.status === "live" ? "bg-rose-500 text-white" : "bg-slate-100 text-slate-700"}>
-                            {fixture.status === "live" ? "Live" : fixture.status === "completed" ? "Done" : "Next"}
-                          </Badge>
-                        </div>
-                        <div className="mt-4 space-y-1 text-sm text-slate-600">
-                          <p>{date ? date.toLocaleDateString() : "Date TBD"}</p>
-                          <p>{fixture.venue || "Venue TBD"}</p>
-                          <p>{fixture.location || "Location TBD"}</p>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
+                    <a href={fixture.youtubeUrl || DEFAULT_MEGASMASH_YOUTUBE_URL} target="_blank" rel="noreferrer" className="mt-4 block">
+                      <Button variant="outline" className="w-full">
+                        <PlayCircle className="size-4" />
+                        YouTube Link
+                      </Button>
+                    </a>
+                  </article>
+                );
+              })}
             </div>
+            </div>
+            {megaSmashFixtures.length === 0 ? (
+              <div className="mt-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+                Publish MegaSmash-2026 fixtures from Admin to display the 12-game carousel.
+              </div>
+            ) : null}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
-      {latestKeyMomentYear && latestKeyMomentImages.length > 0 && (
+      {memoryYears.length > 0 && (
         <section className="bg-white py-12 md:py-16">
           <div className="max-w-6xl mx-auto px-4 space-y-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div className="space-y-3">
                 <div className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
-                  Key Moments {latestKeyMomentYear.year}
+                  Key Memories Since 2018
                 </div>
                 <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-950">
-                  Latest highlights from the club
+                  Explore Starks memories by year
                 </h2>
                 <p className="max-w-3xl text-lg text-slate-600">
-                  A curated look at Starks Cricket&apos;s newest memories while the full photo story lives on Instagram.
+                  Select a year to view that season&apos;s key moments, from our 2018 beginnings to today.
                 </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {memoryYears.map((year) => (
+                    <button
+                      key={year}
+                      type="button"
+                      onClick={() => setSelectedMemoriesYear(year)}
+                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                        selectedMemoriesYear === year
+                          ? "border-blue-300 bg-blue-600 text-white shadow-sm"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-blue-50"
+                      }`}
+                    >
+                      {year}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
@@ -417,69 +565,108 @@ export default function LandingPage({
               </div>
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-[1.2fr,0.8fr]">
-              <a
-                href="/gallery"
-                className="group relative overflow-hidden rounded-[28px] bg-slate-900 text-left shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl"
-              >
-                <div className="relative aspect-[16/11] w-full">
-                  <Image
-                    src={latestKeyMomentImages[0].src}
-                    alt={latestKeyMomentImages[0].title}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 60vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/75">
-                    Latest Year · {latestKeyMomentYear.year}
-                  </p>
-                  <h3 className="mt-2 text-2xl font-black">{latestKeyMomentImages[0].title}</h3>
-                  <p className="mt-2 max-w-xl text-sm text-white/80">{latestKeyMomentImages[0].caption}</p>
-                </div>
-              </a>
-
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-                {latestKeyMomentImages.slice(1).map((image) => (
-                  <a
-                    key={image.id}
-                    href="/gallery"
-                    className="group flex overflow-hidden rounded-[24px] border border-slate-200 bg-white text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+            {selectedMemoriesImages.length > 0 ? (
+              <div className="space-y-4">
+                <div className="relative overflow-hidden rounded-[28px] bg-slate-900 shadow-xl">
+                  <div
+                    className="flex transition-transform duration-500 ease-out"
+                    style={{ transform: `translateX(-${memoriesCarouselIndex * 100}%)` }}
                   >
-                    <div className="relative aspect-square w-28 shrink-0 sm:w-32">
-                      <Image
-                        src={image.src}
-                        alt={image.title}
-                        fill
-                        sizes="160px"
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    {selectedMemoriesImages.map((image, imageIndex) => (
+                      <a key={image.id} href="/gallery" className="group relative block w-full shrink-0 text-left">
+                        <div className="relative aspect-[16/10] w-full">
+                          <Image
+                            src={image.src}
+                            alt={image.title}
+                            fill
+                            sizes="(max-width: 1024px) 100vw, 80vw"
+                            className="object-cover transition-transform duration-500 group-hover:scale-105"
+                          />
+                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/75">
+                            {selectedMemoriesYear} Memory {String(imageIndex + 1).padStart(2, "0")}
+                          </p>
+                          <h3 className="mt-2 text-2xl font-black">{image.title}</h3>
+                          <p className="mt-2 max-w-2xl text-sm text-white/85">{image.caption}</p>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+
+                  {selectedMemoriesImages.length > 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Previous memory image"
+                        onClick={() =>
+                          setMemoriesCarouselIndex((current) =>
+                            current === 0 ? selectedMemoriesImages.length - 1 : current - 1,
+                          )
+                        }
+                        className="absolute left-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/35 bg-black/35 p-2 text-white backdrop-blur hover:bg-black/50"
+                      >
+                        <ChevronLeft className="size-5" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Next memory image"
+                        onClick={() =>
+                          setMemoriesCarouselIndex((current) => (current + 1) % selectedMemoriesImages.length)
+                        }
+                        className="absolute right-3 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/35 bg-black/35 p-2 text-white backdrop-blur hover:bg-black/50"
+                      >
+                        <ChevronRight className="size-5" />
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+
+                {selectedMemoriesImages.length > 1 ? (
+                  <div className="flex justify-center gap-2">
+                    {selectedMemoriesImages.map((image, imageIndex) => (
+                      <button
+                        key={image.id}
+                        type="button"
+                        aria-label={`Go to memory image ${imageIndex + 1}`}
+                        onClick={() => setMemoriesCarouselIndex(imageIndex)}
+                        className={`h-2.5 w-2.5 rounded-full transition ${
+                          imageIndex === memoriesCarouselIndex ? "bg-blue-600" : "bg-slate-300 hover:bg-slate-400"
+                        }`}
                       />
-                    </div>
-                    <div className="flex flex-1 flex-col justify-center p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">
-                        {latestKeyMomentYear.year}
-                      </p>
-                      <h3 className="mt-2 line-clamp-2 text-lg font-bold text-slate-900">{image.title}</h3>
-                      <p className="mt-1 line-clamp-2 text-sm text-slate-600">{image.caption}</p>
-                    </div>
-                  </a>
-                ))}
+                    ))}
+                  </div>
+                ) : null}
 
                 <Card className="rounded-[24px] border-blue-100 bg-blue-50 shadow-none">
                   <CardBody>
                     <div className="space-y-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">Keep It Premium</p>
-                      <h3 className="text-xl font-black text-slate-900">Small on-site archive, full social gallery</h3>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">Yearly Archive</p>
+                      <h3 className="text-xl font-black text-slate-900">{selectedMemoriesYear} moments on site</h3>
                       <p className="text-sm text-slate-600">
-                        Keep milestone moments on the website and drive the broader match-day gallery to Instagram.
+                        Carousel rotates automatically and supports manual left/right navigation on mobile and desktop.
                       </p>
                     </div>
                   </CardBody>
                 </Card>
               </div>
-            </div>
+            ) : (
+              <Card className="rounded-[28px] border border-dashed border-blue-200 bg-blue-50/60 shadow-none">
+                <CardBody>
+                  <div className="space-y-2 p-2 text-center sm:text-left">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">
+                      {selectedMemoriesYear} Memories So Far
+                    </p>
+                    <h3 className="text-2xl font-black text-slate-900">Moments for {selectedMemoriesYear} are coming in</h3>
+                    <p className="text-sm text-slate-600">
+                      We have added {selectedMemoriesYear} to the archive selector. Upload key moment photos for this year
+                      to display them here.
+                    </p>
+                  </div>
+                </CardBody>
+              </Card>
+            )}
           </div>
         </section>
       )}

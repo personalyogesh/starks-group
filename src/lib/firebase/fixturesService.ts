@@ -19,6 +19,7 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import {
   DEFAULT_FIXTURE_YOUTUBE_URL,
   FIXTURE_SEASON_OPTIONS,
+  MEGA_SMASH_2026_OFFICIAL_SCHEDULE,
   STARKS_2026_FIXTURE_TEMPLATES,
   type FixtureSeasonKey,
 } from "@/data/starksFixtures2026";
@@ -26,6 +27,7 @@ import { db, isFirebaseConfigured, storage } from "@/lib/firebaseClient";
 
 export type FixtureStatus = "scheduled" | "live" | "completed" | "postponed";
 export type FixtureVenueType = "home" | "away" | "neutral";
+export type FixtureResultOutcome = "unknown" | "win" | "loss" | "tie";
 
 export type Fixture = {
   id: string;
@@ -45,7 +47,10 @@ export type Fixture = {
   liveScoreUrl: string;
   youtubeUrl: string;
   resultText: string;
+  resultOutcome: FixtureResultOutcome;
   mvp: string;
+  mvpImageUrl: string;
+  mvpImageStoragePath: string;
   heroImageUrl: string;
   heroImageStoragePath: string;
   notes: string;
@@ -69,6 +74,10 @@ function toFixtureStatus(value: unknown): FixtureStatus {
 
 function toVenueType(value: unknown): FixtureVenueType {
   return value === "away" || value === "neutral" ? value : "home";
+}
+
+function toResultOutcome(value: unknown): FixtureResultOutcome {
+  return value === "win" || value === "loss" || value === "tie" ? value : "unknown";
 }
 
 function toSeasonKey(value: unknown): FixtureSeasonKey {
@@ -100,7 +109,10 @@ function normalizeFixture(id: string, data: Record<string, unknown>): Fixture {
     liveScoreUrl: String(data.liveScoreUrl ?? ""),
     youtubeUrl: String(data.youtubeUrl ?? ""),
     resultText: String(data.resultText ?? ""),
+    resultOutcome: toResultOutcome(data.resultOutcome),
     mvp: String(data.mvp ?? ""),
+    mvpImageUrl: String(data.mvpImageUrl ?? ""),
+    mvpImageStoragePath: String(data.mvpImageStoragePath ?? ""),
     heroImageUrl: String(data.heroImageUrl ?? ""),
     heroImageStoragePath: String(data.heroImageStoragePath ?? ""),
     notes: String(data.notes ?? ""),
@@ -233,28 +245,34 @@ export async function updateFixture(id: string, updates: UpdateFixtureInput): Pr
 }
 
 export async function createFixtureWithOptionalImage(
-  input: Omit<CreateFixtureInput, "heroImageUrl" | "heroImageStoragePath">,
-  imageFile?: File | null,
+  input: Omit<CreateFixtureInput, "heroImageUrl" | "heroImageStoragePath" | "mvpImageUrl" | "mvpImageStoragePath">,
+  files?: { heroImageFile?: File | null; mvpImageFile?: File | null },
 ) {
-  const imageFields = imageFile
-    ? await uploadFixtureHeroImage(imageFile)
+  const heroImageFields = files?.heroImageFile
+    ? await uploadFixtureHeroImage(files.heroImageFile)
     : { heroImageUrl: "", heroImageStoragePath: "" };
+  const mvpImageFields = files?.mvpImageFile
+    ? await uploadFixtureHeroImage(files.mvpImageFile)
+    : { mvpImageUrl: "", mvpImageStoragePath: "" };
 
   return createFixture({
     ...input,
-    ...imageFields,
+    ...heroImageFields,
+    ...mvpImageFields,
   });
 }
 
 export async function updateFixtureWithOptionalImage(
   id: string,
-  updates: Omit<UpdateFixtureInput, "heroImageUrl" | "heroImageStoragePath">,
-  imageFile?: File | null,
+  updates: Omit<UpdateFixtureInput, "heroImageUrl" | "heroImageStoragePath" | "mvpImageUrl" | "mvpImageStoragePath">,
+  files?: { heroImageFile?: File | null; mvpImageFile?: File | null },
 ) {
-  const imageFields = imageFile ? await uploadFixtureHeroImage(imageFile) : {};
+  const heroImageFields = files?.heroImageFile ? await uploadFixtureHeroImage(files.heroImageFile) : {};
+  const mvpImageFields = files?.mvpImageFile ? await uploadFixtureHeroImage(files.mvpImageFile) : {};
   await updateFixture(id, {
     ...updates,
-    ...imageFields,
+    ...heroImageFields,
+    ...mvpImageFields,
   });
 }
 
@@ -295,7 +313,10 @@ export async function seed2026Fixtures(): Promise<{ created: number; skipped: bo
       liveScoreUrl: "",
       youtubeUrl: DEFAULT_FIXTURE_YOUTUBE_URL,
       resultText: "",
+      resultOutcome: "unknown",
       mvp: "",
+      mvpImageUrl: "",
+      mvpImageStoragePath: "",
       heroImageUrl: "",
       heroImageStoragePath: "",
       notes: template.notes ?? "",
@@ -306,4 +327,99 @@ export async function seed2026Fixtures(): Promise<{ created: number; skipped: bo
 
   await batch.commit();
   return { created: STARKS_2026_FIXTURE_TEMPLATES.length, skipped: false };
+}
+
+export async function setSeasonFixturesVisibility(args: {
+  seasonKey: FixtureSeasonKey;
+  seasonYear: number;
+  isPublic: boolean;
+}): Promise<{ updated: number }> {
+  if (!isFirebaseConfigured) throw new Error("Firebase isn’t configured.");
+  const snap = await getDocs(
+    query(
+      collection(db, "fixtures"),
+      where("seasonKey", "==", args.seasonKey),
+      where("seasonYear", "==", args.seasonYear),
+    ),
+  );
+
+  if (snap.empty) return { updated: 0 };
+
+  const batch = writeBatch(db);
+  snap.docs.forEach((fixtureDoc) => {
+    batch.update(fixtureDoc.ref, {
+      isPublic: args.isPublic,
+      updatedAt: serverTimestamp(),
+    });
+  });
+  await batch.commit();
+  return { updated: snap.docs.length };
+}
+
+export async function publishMegaSmashFixtures2026(): Promise<{ created: number; updated: number }> {
+  if (!isFirebaseConfigured) throw new Error("Firebase isn’t configured.");
+
+  const snap = await getDocs(
+    query(collection(db, "fixtures"), where("seasonKey", "==", "mega-smash-2026"), where("seasonYear", "==", 2026)),
+  );
+  const existingByGame = new Map<number, { id: string }>();
+  snap.docs.forEach((fixtureDoc) => {
+    const data = normalizeFixture(fixtureDoc.id, fixtureDoc.data() as Record<string, unknown>);
+    existingByGame.set(data.gameNumber, { id: fixtureDoc.id });
+  });
+
+  const batch = writeBatch(db);
+  let created = 0;
+  let updated = 0;
+
+  for (const game of MEGA_SMASH_2026_OFFICIAL_SCHEDULE) {
+    const venueType = game.starksRole === "visitor" ? "away" : "home";
+    const teams = buildFixtureMatchup({
+      venueType,
+      opponent: game.opponent,
+    });
+    const gameDate = Timestamp.fromDate(new Date(2026, game.month - 1, game.day, game.hour24, game.minute, 0, 0));
+    const existing = existingByGame.get(game.gameNumber);
+    const fixtureRef = existing ? doc(db, "fixtures", existing.id) : doc(db, "fixtures", `mega-smash-2026-${String(game.gameNumber).padStart(2, "0")}`);
+    const payload = {
+      seasonKey: "mega-smash-2026",
+      seasonLabel: "Mega Smash 2026",
+      seasonYear: 2026,
+      gameNumber: game.gameNumber,
+      homeTeam: teams.homeTeam,
+      awayTeam: teams.awayTeam,
+      opponent: game.opponent,
+      date: gameDate,
+      venue: game.venue,
+      location: game.location,
+      venueType,
+      status: "scheduled",
+      isPublic: true,
+      liveScoreUrl: "",
+      youtubeUrl: DEFAULT_FIXTURE_YOUTUBE_URL,
+      resultText: "",
+      resultOutcome: "unknown",
+      mvp: "",
+      mvpImageUrl: "",
+      mvpImageStoragePath: "",
+      heroImageUrl: "",
+      heroImageStoragePath: "",
+      notes: "",
+      updatedAt: serverTimestamp(),
+    } as const;
+
+    if (existing) {
+      batch.update(fixtureRef, payload);
+      updated += 1;
+    } else {
+      batch.set(fixtureRef, {
+        ...payload,
+        createdAt: serverTimestamp(),
+      });
+      created += 1;
+    }
+  }
+
+  await batch.commit();
+  return { created, updated };
 }

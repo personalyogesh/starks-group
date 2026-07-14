@@ -26,7 +26,8 @@ export default function Button({
     <button
       {...props}
       className={cn(
-        "font-medium transition disabled:opacity-50 disabled:cursor-not-allowed",
+        "inline-flex items-center justify-center gap-2 whitespace-nowrap align-middle font-medium leading-none transition disabled:cursor-not-allowed disabled:opacity-50",
+        "[&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:pointer-events-none",
         sizeStyles,
         styles,
         props.className

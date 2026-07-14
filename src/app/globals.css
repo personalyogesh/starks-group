@@ -41,5 +41,18 @@ body {
 
 /* Make Tailwind typography feel more "sports club" than default system text */
 html {
-  text-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Consistent heading rhythm across pages/devices */
+h1, h2, h3, h4, h5, h6 {
+  text-wrap: balance;
+  line-height: 1.15;
+}
+
+/* Keep icon alignment consistent with surrounding text */
+svg.lucide {
+  vertical-align: middle;
 }
