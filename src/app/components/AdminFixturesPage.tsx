@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Timestamp } from "firebase/firestore";
 import { CalendarDays, Pencil, Radio, RefreshCw, ShieldCheck, Trash2, Trophy, Upload } from "lucide-react";
 
@@ -20,11 +21,13 @@ import {
   createFixtureWithOptionalImage,
   deleteFixture,
   getAllFixtures,
+  publishMegaSmashFixtures2026,
   seed2026Fixtures,
   subscribeToFixtures,
   updateFixture,
   updateFixtureWithOptionalImage,
   type Fixture,
+  type FixtureResultOutcome,
   type FixtureStatus,
   type FixtureVenueType,
 } from "@/lib/firebase/fixturesService";
@@ -47,6 +50,7 @@ type FixtureForm = {
   liveScoreUrl: string;
   youtubeUrl: string;
   resultText: string;
+  resultOutcome: FixtureResultOutcome;
   mvp: string;
   notes: string;
 };
@@ -68,6 +72,7 @@ const defaultForm: FixtureForm = {
   liveScoreUrl: "",
   youtubeUrl: "https://www.youtube.com/@starkscricket",
   resultText: "",
+  resultOutcome: "unknown",
   mvp: "",
   notes: "",
 };
@@ -102,7 +107,8 @@ export default function AdminFixturesPage() {
   const [seasonFilter, setSeasonFilter] = useState<FixtureSeasonKey | "all">("all");
   const [editingFixtureId, setEditingFixtureId] = useState<string | null>(null);
   const [form, setForm] = useState<FixtureForm>(defaultForm);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
+  const [mvpImageFile, setMvpImageFile] = useState<File | null>(null);
 
   const loadFixtures = useCallback(async () => {
     setLoading(true);
@@ -173,7 +179,8 @@ export default function AdminFixturesPage() {
   function resetForm() {
     setForm(defaultForm);
     setEditingFixtureId(null);
-    setImageFile(null);
+    setHeroImageFile(null);
+    setMvpImageFile(null);
   }
 
   function hydrateForm(fixture: Fixture) {
@@ -193,10 +200,12 @@ export default function AdminFixturesPage() {
       liveScoreUrl: fixture.liveScoreUrl,
       youtubeUrl: fixture.youtubeUrl,
       resultText: fixture.resultText,
+      resultOutcome: fixture.resultOutcome,
       mvp: fixture.mvp,
       notes: fixture.notes,
     });
-    setImageFile(null);
+    setHeroImageFile(null);
+    setMvpImageFile(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -226,6 +235,30 @@ export default function AdminFixturesPage() {
       });
     } finally {
       setSeeding(false);
+    }
+  }
+
+  async function handlePublishMegaSmashSeason() {
+    setSaving(true);
+    try {
+      const result = await publishMegaSmashFixtures2026();
+      toast({
+        kind: "success",
+        title: "MegaSmash published",
+        description:
+          result.created > 0
+            ? `Created ${result.created} and updated ${result.updated} MegaSmash fixtures for the homepage carousel.`
+            : `Updated ${result.updated} MegaSmash fixtures for the homepage carousel.`,
+      });
+      await loadFixtures();
+    } catch (error) {
+      toast({
+        kind: "error",
+        title: "Failed to publish MegaSmash",
+        description: describeFirebasePermissionDenied(error),
+      });
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -264,15 +297,22 @@ export default function AdminFixturesPage() {
         liveScoreUrl: form.liveScoreUrl.trim(),
         youtubeUrl: form.youtubeUrl.trim(),
         resultText: form.resultText.trim(),
+        resultOutcome: form.resultOutcome,
         mvp: form.mvp.trim(),
         notes: form.notes.trim(),
       };
 
       if (editingFixtureId) {
-        await updateFixtureWithOptionalImage(editingFixtureId, payload, imageFile);
+        await updateFixtureWithOptionalImage(editingFixtureId, payload, {
+          heroImageFile,
+          mvpImageFile,
+        });
         toast({ kind: "success", title: "Fixture updated" });
       } else {
-        await createFixtureWithOptionalImage(payload, imageFile);
+        await createFixtureWithOptionalImage(payload, {
+          heroImageFile,
+          mvpImageFile,
+        });
         toast({ kind: "success", title: "Fixture created" });
       }
 
@@ -334,6 +374,10 @@ export default function AdminFixturesPage() {
             <Button variant="outline" onClick={() => void handleSeedSeason()} disabled={seeding}>
               <Upload className="size-4" />
               {seeding ? "Loading templates..." : "Load 2026 Templates"}
+            </Button>
+            <Button variant="dark" onClick={() => void handlePublishMegaSmashSeason()} disabled={saving}>
+              {saving ? <RefreshCw className="size-4 animate-spin" /> : null}
+              Publish MegaSmash 12
             </Button>
           </div>
         </div>
@@ -441,8 +485,24 @@ export default function AdminFixturesPage() {
               </div>
 
               <div>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">Result type</label>
+                <Select value={form.resultOutcome} onChange={(event) => setField("resultOutcome", event.target.value as FixtureResultOutcome)}>
+                  <option value="unknown">Not set</option>
+                  <option value="win">Win</option>
+                  <option value="loss">Loss</option>
+                  <option value="tie">Tie</option>
+                </Select>
+              </div>
+
+              <div>
                 <label className="mb-1 block text-sm font-semibold text-slate-700">MVP</label>
                 <Input value={form.mvp} onChange={(event) => setField("mvp", event.target.value)} />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-semibold text-slate-700">MVP profile image</label>
+                <Input type="file" accept="image/*" onChange={(event) => setMvpImageFile(event.target.files?.[0] ?? null)} />
+                <p className="mt-2 text-xs text-slate-500">Upload the player profile image used in the MegaSmash cards.</p>
               </div>
 
               <div className="md:col-span-2">
@@ -457,7 +517,7 @@ export default function AdminFixturesPage() {
 
               <div>
                 <label className="mb-1 block text-sm font-semibold text-slate-700">Optional cricket hero image</label>
-                <Input type="file" accept="image/*" onChange={(event) => setImageFile(event.target.files?.[0] ?? null)} />
+                <Input type="file" accept="image/*" onChange={(event) => setHeroImageFile(event.target.files?.[0] ?? null)} />
                 <p className="mt-2 text-xs text-slate-500">
                   If no image is uploaded, the public cards use built-in cricket-themed backgrounds.
                 </p>
@@ -552,6 +612,11 @@ export default function AdminFixturesPage() {
                         </div>
                         {(fixture.resultText || fixture.mvp) && (
                           <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
+                            {fixture.resultOutcome !== "unknown" ? (
+                              <p>
+                                <strong>Type:</strong> {fixture.resultOutcome.toUpperCase()}
+                              </p>
+                            ) : null}
                             {fixture.resultText ? (
                               <p>
                                 <strong>Result:</strong> {fixture.resultText}
@@ -561,6 +626,15 @@ export default function AdminFixturesPage() {
                               <p>
                                 <strong>MVP:</strong> {fixture.mvp}
                               </p>
+                            ) : null}
+                            {fixture.mvpImageUrl ? (
+                              <Image
+                                src={fixture.mvpImageUrl}
+                                alt={`${fixture.mvp || "Fixture"} MVP`}
+                                width={40}
+                                height={40}
+                                className="mt-2 size-10 rounded-full object-cover"
+                              />
                             ) : null}
                           </div>
                         )}
@@ -582,6 +656,33 @@ export default function AdminFixturesPage() {
                         >
                           <Trophy className="size-4" />
                           Mark Completed
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            void quickUpdate(fixture, { status: "completed", resultOutcome: "win" })
+                          }
+                        >
+                          Mark Win
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            void quickUpdate(fixture, { status: "completed", resultOutcome: "loss" })
+                          }
+                        >
+                          Mark Loss
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            void quickUpdate(fixture, { status: "completed", resultOutcome: "tie" })
+                          }
+                        >
+                          Mark Tie
                         </Button>
                         <Button
                           size="sm"
