@@ -252,7 +252,10 @@ export async function createFixtureWithOptionalImage(
     ? await uploadFixtureHeroImage(files.heroImageFile)
     : { heroImageUrl: "", heroImageStoragePath: "" };
   const mvpImageFields = files?.mvpImageFile
-    ? await uploadFixtureHeroImage(files.mvpImageFile)
+    ? await uploadFixtureHeroImage(files.mvpImageFile).then((uploaded) => ({
+        mvpImageUrl: uploaded.heroImageUrl,
+        mvpImageStoragePath: uploaded.heroImageStoragePath,
+      }))
     : { mvpImageUrl: "", mvpImageStoragePath: "" };
 
   return createFixture({
@@ -268,7 +271,12 @@ export async function updateFixtureWithOptionalImage(
   files?: { heroImageFile?: File | null; mvpImageFile?: File | null },
 ) {
   const heroImageFields = files?.heroImageFile ? await uploadFixtureHeroImage(files.heroImageFile) : {};
-  const mvpImageFields = files?.mvpImageFile ? await uploadFixtureHeroImage(files.mvpImageFile) : {};
+  const mvpImageFields = files?.mvpImageFile
+    ? await uploadFixtureHeroImage(files.mvpImageFile).then((uploaded) => ({
+        mvpImageUrl: uploaded.heroImageUrl,
+        mvpImageStoragePath: uploaded.heroImageStoragePath,
+      }))
+    : {};
   await updateFixture(id, {
     ...updates,
     ...heroImageFields,
