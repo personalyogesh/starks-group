@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Copy, ExternalLink, Printer, Ticket } from "lucide-react";
+import { Copy, ExternalLink, Ticket } from "lucide-react";
 
 import { RequireAdmin } from "@/components/RequireAdmin";
 import { Breadcrumbs } from "@/app/components/Breadcrumbs";
@@ -234,12 +234,6 @@ export default function AdminMvpGiftCardsPage() {
                                 Open
                               </Button>
                             </Link>
-                            <a href={`/redeem/${encodeURIComponent(card.data.code)}?print=1`} target="_blank" rel="noreferrer">
-                              <Button size="sm" variant="outline">
-                                <Printer className="size-4" />
-                                Print
-                              </Button>
-                            </a>
                           </div>
                         </td>
                       </tr>
