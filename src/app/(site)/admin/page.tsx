@@ -313,6 +313,11 @@ export default function AdminPage() {
                     📅 Manage Fixtures
                   </Button>
                 </Link>
+                <Link href="/admin/mvp-gift-cards">
+                  <Button variant="outline" className="w-full">
+                    🎟️ MVP Gift Cards
+                  </Button>
+                </Link>
                 <Link href="/gallery">
                   <Button variant="outline" className="w-full">
                     📸 View Key Moments
