@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Download, Gift, Ticket, XCircle } from "lucide-react";
+import { CheckCircle2, Download, Gift, XCircle } from "lucide-react";
 
 import { useAuth } from "@/lib/AuthContext";
 import Button from "@/components/ui/Button";
@@ -13,13 +13,11 @@ import { getMvpGiftCardByCode, redeemMvpGiftCard, type MvpGiftCardDoc } from "@/
 
 type RedeemGiftCardPageProps = {
   initialCode?: string;
-  initialPrintMode?: boolean;
 };
 
-export default function RedeemGiftCardPage({ initialCode = "", initialPrintMode = false }: RedeemGiftCardPageProps) {
+export default function RedeemGiftCardPage({ initialCode = "" }: RedeemGiftCardPageProps) {
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  const printMode = initialPrintMode;
   const [codeInput, setCodeInput] = useState(initialCode);
   const [loading, setLoading] = useState(Boolean(initialCode));
   const [redeeming, setRedeeming] = useState(false);
@@ -34,13 +32,6 @@ export default function RedeemGiftCardPage({ initialCode = "", initialPrintMode 
     void lookupCode(initialCode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCode]);
-
-  useEffect(() => {
-    if (!printMode) return;
-    if (!card) return;
-    const timer = window.setTimeout(() => window.print(), 200);
-    return () => window.clearTimeout(timer);
-  }, [card, printMode]);
 
   const isExpired = useMemo(() => {
     if (!card?.data.expiresAt) return false;
@@ -122,7 +113,7 @@ export default function RedeemGiftCardPage({ initialCode = "", initialPrintMode 
       pdf.save(`${card.data.code}.pdf`);
       toast({ kind: "success", title: "PDF downloaded", description: `${card.data.code}.pdf` });
     } catch {
-      toast({ kind: "error", title: "Download failed", description: "Please try print mode as fallback." });
+      toast({ kind: "error", title: "Download failed", description: "Please try again." });
     } finally {
       setDownloading(false);
     }
@@ -138,33 +129,29 @@ export default function RedeemGiftCardPage({ initialCode = "", initialPrintMode 
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      {!printMode ? (
-        <>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">MVP Gift Card Redemption</h1>
-            <p className="text-slate-600">Enter a code to verify status and redeem one-time at Hashtag India Cary.</p>
-          </div>
+      <div className="space-y-2">
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-950">MVP Gift Card Redemption</h1>
+        <p className="text-slate-600">Enter a code to verify status and redeem one-time at Hashtag India Cary.</p>
+      </div>
 
-          <Card>
-            <CardHeader>
-              <div className="font-bold text-lg">Check Gift Card Code</div>
-            </CardHeader>
-            <CardBody>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Input
-                  value={codeInput}
-                  onChange={(event) => setCodeInput(event.target.value)}
-                  placeholder="HTI-STARKS-2026-001"
-                />
-                <Button onClick={() => void lookupCode(codeInput)} disabled={loading}>
-                  {loading ? "Checking..." : "Check Code"}
-                </Button>
-              </div>
-              {lookupError ? <p className="mt-3 text-sm font-semibold text-rose-700">{lookupError}</p> : null}
-            </CardBody>
-          </Card>
-        </>
-      ) : null}
+      <Card>
+        <CardHeader>
+          <div className="font-bold text-lg">Check Gift Card Code</div>
+        </CardHeader>
+        <CardBody>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Input
+              value={codeInput}
+              onChange={(event) => setCodeInput(event.target.value)}
+              placeholder="HTI-STARKS-2026-001"
+            />
+            <Button onClick={() => void lookupCode(codeInput)} disabled={loading}>
+              {loading ? "Checking..." : "Check Code"}
+            </Button>
+          </div>
+          {lookupError ? <p className="mt-3 text-sm font-semibold text-rose-700">{lookupError}</p> : null}
+        </CardBody>
+      </Card>
 
       {card ? (
         <Card className="overflow-hidden rounded-[28px] border-indigo-200">
@@ -217,25 +204,11 @@ export default function RedeemGiftCardPage({ initialCode = "", initialPrintMode 
                 </p>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3 print:hidden">
-                <Button
-                  variant="dark"
-                  onClick={() => {
-                    window.print();
-                  }}
-                >
-                  <Ticket className="size-4" />
-                  Print Digital Card
-                </Button>
+              <div className="mt-6 flex flex-wrap gap-3">
                 <Button variant="outline" onClick={() => void handleDownloadPdf()} disabled={downloading}>
                   <Download className="size-4" />
                   {downloading ? "Preparing PDF..." : "Download PDF"}
                 </Button>
-                {!printMode ? (
-                  <Link href={`/redeem/${encodeURIComponent(card.data.code)}?print=1`} target="_blank">
-                    <Button variant="outline">Open Print View</Button>
-                  </Link>
-                ) : null}
               </div>
             </div>
           </CardBody>
@@ -243,7 +216,7 @@ export default function RedeemGiftCardPage({ initialCode = "", initialPrintMode 
       ) : null}
 
       {card && !card.data.redeemed && !isExpired ? (
-        <Card className="print:hidden">
+        <Card>
           <CardHeader>
             <div className="font-bold text-lg">Restaurant Staff Action</div>
             <div className="text-sm text-slate-600 mt-1">Only admins can complete one-time redemption.</div>
@@ -270,11 +243,13 @@ export default function RedeemGiftCardPage({ initialCode = "", initialPrintMode 
         </p>
       ) : null}
 
-      {!printMode ? (
-        <div className="text-sm text-slate-500">
-          Need bulk generation? <Link className="font-semibold text-blue-700 hover:underline" href="/admin/mvp-gift-cards">Open Admin MVP Gift Cards</Link>.
-        </div>
-      ) : null}
+      <div className="text-sm text-slate-500">
+        Need bulk generation?{" "}
+        <Link className="font-semibold text-blue-700 hover:underline" href="/admin/mvp-gift-cards">
+          Open Admin MVP Gift Cards
+        </Link>
+        .
+      </div>
     </div>
   );
 }
