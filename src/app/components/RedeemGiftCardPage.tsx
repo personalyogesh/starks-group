@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Download, Gift, XCircle } from "lucide-react";
 
@@ -25,7 +25,6 @@ export default function RedeemGiftCardPage({ initialCode = "" }: RedeemGiftCardP
   const [card, setCard] = useState<{ id: string; data: MvpGiftCardDoc } | null>(null);
   const [lookupError, setLookupError] = useState("");
   const canRedeem = currentUser?.userDoc?.role === "admin";
-  const printableCardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!initialCode) return;
@@ -92,28 +91,86 @@ export default function RedeemGiftCardPage({ initialCode = "" }: RedeemGiftCardP
   }
 
   async function handleDownloadPdf() {
-    if (!card || !printableCardRef.current) return;
+    if (!card) return;
     setDownloading(true);
     try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
+      const jspdfModule = await import("jspdf");
+      const JsPdfCtor =
+        (jspdfModule as unknown as { jsPDF?: new (...args: unknown[]) => any }).jsPDF ??
+        (jspdfModule as unknown as { default?: new (...args: unknown[]) => any }).default;
+      if (!JsPdfCtor) throw new Error("PDF module unavailable");
 
-      const canvas = await html2canvas(printableCardRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      });
-
-      const imageData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: canvas.width > canvas.height ? "landscape" : "portrait",
+      const pdf = new JsPdfCtor({
+        orientation: "portrait",
         unit: "pt",
-        format: [canvas.width, canvas.height],
+        format: "a4",
       });
-      pdf.addImage(imageData, "PNG", 0, 0, canvas.width, canvas.height);
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      let y = 70;
+
+      pdf.setFillColor(15, 23, 42);
+      pdf.roundedRect(42, 42, pageWidth - 84, 210, 18, 18, "F");
+
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(16);
+      pdf.text("STARKS MVP GIFT CARD", 58, 76);
+
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Code: ${card.data.code}`, 58, 98);
+      pdf.text(`Season: ${card.data.seasonYear}`, 58, 116);
+
+      pdf.setTextColor(15, 23, 42);
+      y = 292;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(12);
+      pdf.text("PLAYER NAME", 42, y);
+      y += 26;
+      pdf.setFontSize(24);
+      pdf.text(card.data.playerName || "MVP Player", 42, y);
+
+      y += 48;
+      pdf.setFontSize(12);
+      pdf.text("GIFT VALUE", 42, y);
+      y += 24;
+      pdf.setFontSize(22);
+      pdf.text(`$${card.data.amount.toFixed(2)}`, 42, y);
+
+      y += 44;
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(
+        `Issued: ${card.data.issuedAt ? card.data.issuedAt.toDate().toLocaleString() : "—"}`,
+        42,
+        y,
+      );
+      y += 20;
+      pdf.text(
+        `Expires: ${card.data.expiresAt ? card.data.expiresAt.toDate().toLocaleString() : "No expiry"}`,
+        42,
+        y,
+      );
+      y += 20;
+      pdf.text(
+        `Status: ${card.data.redeemed ? "Redeemed" : isExpired ? "Expired" : "Valid"}`,
+        42,
+        y,
+      );
+
+      y += 44;
+      pdf.setFont("helvetica", "italic");
+      pdf.setTextColor(71, 85, 105);
+      pdf.text("Redeem at Hashtag India Cary. One-time use only.", 42, y);
+
       pdf.save(`${card.data.code}.pdf`);
       toast({ kind: "success", title: "PDF downloaded", description: `${card.data.code}.pdf` });
-    } catch {
-      toast({ kind: "error", title: "Download failed", description: "Please try again." });
+    } catch (error) {
+      toast({
+        kind: "error",
+        title: "Download failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
     } finally {
       setDownloading(false);
     }
@@ -156,7 +213,7 @@ export default function RedeemGiftCardPage({ initialCode = "" }: RedeemGiftCardP
       {card ? (
         <Card className="overflow-hidden rounded-[28px] border-indigo-200">
           <CardBody>
-            <div ref={printableCardRef} className="rounded-[22px] border border-slate-200 bg-gradient-to-br from-white via-indigo-50 to-blue-50 p-6 sm:p-8">
+            <div className="rounded-[22px] border border-slate-200 bg-gradient-to-br from-white via-indigo-50 to-blue-50 p-6 sm:p-8">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-indigo-700">
                   <Gift className="size-4" />
