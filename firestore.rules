@@ -249,6 +249,12 @@ service cloud.firestore {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
+
+    // --- MVP Gift Cards (public verify/read, admin issue/redeem management) ---
+    match /mvpGiftCards/{cardId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
   }
 }
 
