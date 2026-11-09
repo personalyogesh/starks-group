@@ -28,6 +28,12 @@ The public V2 site loads content from **local typed files** and **`public/` asse
 
 Registration, kit sizes, birthdays and photo consent belong in **My Cricket 360** only—not in these files.
 
+## Future publishing (My Cricket 360)
+
+The public site stays **read-only** for visitors. Club admins will publish through **My Cricket 360** (central, club-scoped workflow).
+
+When a My Cricket 360 **public content API** is available, this app will load published items server-side by `club_id` (Starks only). Until then, **`src/content/publicSite.ts`** and related local files remain the source of truth—edit files and deploy as today. No Firebase member admin or a separate Starks-only dashboard on this site.
+
 ## After editing
 
 1. `npm run build`
