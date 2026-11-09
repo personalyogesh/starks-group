@@ -25,7 +25,7 @@ export type MegaSmashOfficialScheduleItem = {
   starksRole: "visitor" | "home";
 };
 
-export const DEFAULT_FIXTURE_YOUTUBE_URL = "https://www.youtube.com/@starkscricket";
+export const DEFAULT_FIXTURE_YOUTUBE_URL = "https://www.youtube.com/@starks4cricket";
 
 export const FIXTURE_SEASON_OPTIONS: Array<{ key: FixtureSeasonKey; label: string }> = [
   { key: "mega-bash-2026", label: "Mega Bash 2026" },

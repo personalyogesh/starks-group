@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
 import { GoogleAnalytics } from "@next/third-parties/google";
 
 import "./globals.css";
 import { ThemeProvider } from "@/app/components/ThemeProvider";
 import { GA_MEASUREMENT_ID } from "@/lib/analytics/gaMeasurementId";
+import { publicSiteMetadata } from "@/lib/publicSiteMetadata";
+
+export const metadata: Metadata = publicSiteMetadata;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

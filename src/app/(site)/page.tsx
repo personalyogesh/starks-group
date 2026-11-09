@@ -1,9 +1,7 @@
-import LandingPage from "@/app/components/LandingPage";
+import PublicHomePage from "@/components/public-site/PublicHomePage";
 import { getLocalKeyMomentYears } from "@/lib/localKeyMoments";
 
 export default async function HomePage() {
   const keyMomentYears = await getLocalKeyMomentYears();
-
-  return <LandingPage keyMomentYears={keyMomentYears} />;
+  return <PublicHomePage keyMomentYears={keyMomentYears} />;
 }
-
