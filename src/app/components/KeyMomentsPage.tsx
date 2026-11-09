@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, ImageIcon, Instagram, Sparkles, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImageIcon, Sparkles, X } from "lucide-react";
 
+import { ClubSocialLinks } from "@/components/public-site/ClubSocialLinks";
 import type { KeyMomentYearGroup } from "@/lib/localKeyMoments";
 import Container from "@/components/ui/Container";
 import Card, { CardBody } from "@/components/ui/Card";
@@ -39,30 +40,21 @@ export default function KeyMomentsPage({ yearGroups }: KeyMomentsPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#fffdf7_0%,#f8fbff_45%,#f7f7f8_100%)]">
-      <header className="border-b border-slate-200 bg-gradient-to-r from-blue-100 via-white to-indigo-100 py-6">
+    <div className="min-h-[50vh]">
+      <header className="border-b border-slate-200 bg-gradient-to-r from-blue-100 via-white to-indigo-100 py-6 dark:border-slate-800 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
         <Container>
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-1 rounded-3xl bg-white/88 px-4 py-3 shadow-sm backdrop-blur">
-              <h1 className="text-3xl font-black text-slate-950">Key Moments</h1>
-              <p className="text-sm text-slate-600">
+            <div className="space-y-1 rounded-3xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
+              <h1 className="text-3xl font-black text-slate-950 dark:text-slate-50">Gallery</h1>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
                 A curated year-by-year archive of Starks Cricket&apos;s most important photos.
               </p>
             </div>
 
-            <div className="rounded-3xl border border-white/50 bg-white/88 px-4 py-3 shadow-sm backdrop-blur">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">More matchday photos</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <a
-                  href="https://www.instagram.com/starkscricketclub?igsh=MmU3emNlMmpjNHR0&utm_source=qr"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <Button variant="outline" className="border-white/60 bg-white text-slate-900 shadow-sm hover:bg-slate-50">
-                    <Instagram className="size-4" />
-                    Follow on Instagram
-                  </Button>
-                </a>
+            <div className="rounded-3xl border border-slate-200/80 bg-white/90 px-4 py-3 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">More matchday media</p>
+              <div className="mt-2">
+                <ClubSocialLinks variant="toolbar" />
               </div>
             </div>
           </div>
@@ -82,10 +74,10 @@ export default function KeyMomentsPage({ yearGroups }: KeyMomentsPageProps) {
                       setSelectedYear(group.year);
                       setSelectedImage(null);
                     }}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary ${
                       selectedYear === group.year
-                        ? "bg-slate-950 text-white shadow-md"
-                        : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                        ? "bg-slate-950 text-white shadow-md dark:bg-brand-primary"
+                        : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-800"
                     }`}
                   >
                     {group.year}
@@ -93,21 +85,21 @@ export default function KeyMomentsPage({ yearGroups }: KeyMomentsPageProps) {
                 ))}
               </div>
 
-              <Card className="rounded-3xl border-slate-200 bg-white shadow-sm">
+              <Card className="rounded-3xl border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <CardBody>
                   <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">{selectedYear} season</p>
-                      <p className="mt-2 text-lg font-bold text-slate-950">
+                      <p className="mt-2 text-lg font-bold text-slate-950 dark:text-slate-50">
                         {filteredImages.length} key moment{filteredImages.length === 1 ? "" : "s"}
                       </p>
                     </div>
                     <div className="max-w-xl space-y-1">
-                      <p className="text-sm text-slate-600">
+                      <p className="text-sm text-slate-600 dark:text-slate-300">
                         Highlight wins, team milestones, community events, and the memories that define each season.
                       </p>
                       <p className="text-sm font-medium text-blue-700">
-                        Want the full gallery story? Follow Starks Cricket on Instagram.
+                        Want the full gallery story? Follow Starks Cricket on social media.
                       </p>
                     </div>
                   </div>
@@ -118,7 +110,7 @@ export default function KeyMomentsPage({ yearGroups }: KeyMomentsPageProps) {
                 {filteredImages.map((image, index) => (
                   <Card
                     key={image.id}
-                    className="group overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                    className="group overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"
                   >
                     <button
                       type="button"
@@ -143,21 +135,21 @@ export default function KeyMomentsPage({ yearGroups }: KeyMomentsPageProps) {
                       </div>
                     </button>
                     <CardBody>
-                      <h3 className="truncate font-semibold text-slate-950">{image.title}</h3>
-                      <p className="mt-1 line-clamp-2 text-sm text-slate-600">{image.caption}</p>
+                      <h3 className="truncate font-semibold text-slate-950 dark:text-slate-50">{image.title}</h3>
+                      <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{image.caption}</p>
                     </CardBody>
                   </Card>
                 ))}
               </div>
             </>
           ) : (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900">
               <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-blue-100 text-blue-700">
                 <Sparkles className="size-7" />
               </div>
-              <h2 className="mt-4 text-2xl font-black text-slate-950">No key moments added yet</h2>
-              <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600">
-                Add folders like <code className="rounded bg-slate-100 px-1.5 py-0.5">public/key-moments/2025/</code> and
+              <h2 className="mt-4 text-2xl font-black text-slate-950 dark:text-slate-50">No key moments added yet</h2>
+              <p className="mx-auto mt-3 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
+                Add folders like <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">public/key-moments/2025/</code> and
                 place images inside. The page will group and display them automatically.
               </p>
             </div>

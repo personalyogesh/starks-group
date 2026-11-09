@@ -38,6 +38,10 @@ body {
 .dark .bg-slate-50 { background-color: rgb(2 6 23) !important; }
 .dark .border-slate-200 { border-color: rgb(51 65 85) !important; }
 .dark .border-slate-100 { border-color: rgb(30 41 59) !important; }
+.dark .text-brand-deep { color: rgb(226 232 240) !important; }
+.dark .bg-brand-bg { background-color: rgb(11 18 32) !important; }
+.dark .text-blue-700 { color: rgb(147 197 253) !important; }
+.dark .bg-blue-100 { background-color: rgb(30 58 138 / 0.35) !important; }
 
 /* Make Tailwind typography feel more "sports club" than default system text */
 html {
